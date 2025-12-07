@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HamburgerMenu } from './HamburgerMenu';
+import { Header } from './Header';
 
 interface Props {
     onCreate: (name: string, color: string, avatar: string) => void;
@@ -39,18 +39,8 @@ export const CreateJoin: React.FC<Props> = ({ onCreate, onJoin, theme, onToggleT
 
     return (
         <>
-            <HamburgerMenu theme={theme} onToggleTheme={onToggleTheme} />
+            <Header title="IMPOSTOR" theme={theme} onToggleTheme={onToggleTheme} />
             <div className="glass-panel animate-fade-in" style={{ textAlign: 'center' }}>
-                <h1 style={{
-                    fontSize: '2.5rem',
-                    marginBottom: '0.5rem',
-                    background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text'
-                }}>
-                    Impostor
-                </h1>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Descubre quién miente</p>
 
                 <div

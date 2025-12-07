@@ -16,9 +16,9 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
             <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 style={{
-                    position: 'fixed',
-                    top: '20px',
-                    right: '20px',
+                    /* position: 'fixed', removed for Header integration */
+                    /* top: '20px', */
+                    /* right: '20px', */
                     background: 'var(--glass-bg)',
                     border: '2px solid var(--glass-border)',
                     borderRadius: '8px',

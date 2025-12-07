@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HamburgerMenu } from './HamburgerMenu';
+import { Header } from './Header';
 
 // Input interface removed as it was unused
 
@@ -98,7 +98,7 @@ export const GameCanvas: React.FC<Props> = ({
     if (gameState.state === 'game_over') {
         return (
             <>
-                <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+                <Header title="GAME OVER" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
                 <div className="glass-panel animate-fade-in" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '20px' }}>
                     <h1 style={{ fontSize: '3rem', margin: 0 }}>
                         {gameState.winner === 'civilians' ? '🎉 CIVILES GANAN' : '😈 IMPOSTORES GANAN'}
@@ -121,7 +121,7 @@ export const GameCanvas: React.FC<Props> = ({
     if (gameState.state === 'voting') {
         return (
             <>
-                <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+                <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
                 <div
                     className="glass-panel animate-fade-in"
                     style={{
@@ -289,21 +289,49 @@ export const GameCanvas: React.FC<Props> = ({
     const handleTouchEndWord = () => setHoldingWord(false);
 
     return (
-        <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px', position: 'relative' }}>
-            {/* Top Header with Secure Buttons */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                {gameState.difficulty === 'normal' && (
+        <>
+            <Header title="RONDA" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+            <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px', position: 'relative' }}>
+                {/* Top Header with Secure Buttons */}
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                    {gameState.difficulty === 'normal' && (
+                        <button
+                            className="btn-secondary"
+                            onMouseDown={handleTouchStartRole}
+                            onMouseUp={handleTouchEndRole}
+                            onMouseLeave={handleTouchEndRole}
+                            onTouchStart={handleTouchStartRole}
+                            onTouchEnd={handleTouchEndRole}
+                            style={{
+                                flex: 1,
+                                userSelect: 'none',
+                                background: holdingRole ? 'var(--accent-primary)' : 'transparent',
+                                fontWeight: 'bold',
+                                minHeight: '48px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                whiteSpace: 'normal',
+                                textAlign: 'center',
+                                lineHeight: '1.2',
+                                padding: '4px'
+                            }}
+                        >
+                            {holdingRole ? (myRole === 'impostor' ? 'IMPOSTOR' : 'CIVIL') : '👆 Pulsa ver ROL'}
+                        </button>
+                    )}
+
                     <button
                         className="btn-secondary"
-                        onMouseDown={handleTouchStartRole}
-                        onMouseUp={handleTouchEndRole}
-                        onMouseLeave={handleTouchEndRole}
-                        onTouchStart={handleTouchStartRole}
-                        onTouchEnd={handleTouchEndRole}
+                        onMouseDown={handleTouchStartWord}
+                        onMouseUp={handleTouchEndWord}
+                        onMouseLeave={handleTouchEndWord}
+                        onTouchStart={handleTouchStartWord}
+                        onTouchEnd={handleTouchEndWord}
                         style={{
                             flex: 1,
                             userSelect: 'none',
-                            background: holdingRole ? 'var(--accent-primary)' : 'transparent',
+                            background: holdingWord ? (gameState.difficulty === 'hard' ? 'var(--success)' : (myRole === 'impostor' ? 'var(--error)' : 'var(--success)')) : 'transparent',
                             fontWeight: 'bold',
                             minHeight: '48px',
                             display: 'flex',
@@ -315,107 +343,82 @@ export const GameCanvas: React.FC<Props> = ({
                             padding: '4px'
                         }}
                     >
-                        {holdingRole ? (myRole === 'impostor' ? 'IMPOSTOR' : 'CIVIL') : '👆 Pulsa ver ROL'}
+                        {holdingWord ? (
+                            gameState.difficulty === 'hard'
+                                ? (myRole === 'impostor' ? gameState.impostorWord : gameState.word)
+                                : (myRole === 'impostor' ? 'IMPOSTOR 🤫' : gameState.word)
+                        ) : '👆 Pulsa ver PALABRA'}
                     </button>
+                </div>
+
+                {isKicked && (
+                    <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--error)' }}>
+                        👻 Has sido expulsado (Espectador)
+                    </div>
                 )}
 
-                <button
-                    className="btn-secondary"
-                    onMouseDown={handleTouchStartWord}
-                    onMouseUp={handleTouchEndWord}
-                    onMouseLeave={handleTouchEndWord}
-                    onTouchStart={handleTouchStartWord}
-                    onTouchEnd={handleTouchEndWord}
-                    style={{
-                        flex: 1,
-                        userSelect: 'none',
-                        background: holdingWord ? (gameState.difficulty === 'hard' ? 'var(--success)' : (myRole === 'impostor' ? 'var(--error)' : 'var(--success)')) : 'transparent',
-                        fontWeight: 'bold',
-                        minHeight: '48px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        whiteSpace: 'normal',
-                        textAlign: 'center',
-                        lineHeight: '1.2',
-                        padding: '4px'
-                    }}
-                >
-                    {holdingWord ? (
-                        gameState.difficulty === 'hard'
-                            ? (myRole === 'impostor' ? gameState.impostorWord : gameState.word)
-                            : (myRole === 'impostor' ? 'IMPOSTOR 🤫' : gameState.word)
-                    ) : '👆 Pulsa ver PALABRA'}
-                </button>
-            </div>
-
-            {isKicked && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--error)' }}>
-                    👻 Has sido expulsado (Espectador)
+                {/* Turn Indicator */}
+                <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
+                        {isMyTurn ? 'TI' : activePlayerName}
+                    </div>
                 </div>
-            )}
 
-            {/* Turn Indicator */}
-            <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
-                    {isMyTurn ? 'TI' : activePlayerName}
-                </div>
-            </div>
-
-            {/* Feed */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {gameState.inputs.map((input, i) => {
-                    const p = gameState.players.find(pl => pl.name === input.playerName);
-                    return (
-                        <div key={i} className="animate-fade-in" style={{
-                            display: 'flex',
-                            gap: '12px',
-                            alignItems: 'center',
-                            padding: '12px',
-                            background: 'rgba(255,255,255,0.03)',
-                            borderRadius: '12px',
-                            borderLeft: `4px solid ${p?.color || 'transparent'}`
-                        }}>
-                            <div style={{
-                                width: '36px', height: '36px', borderRadius: '50%',
-                                background: p?.color || 'gray',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '20px', flexShrink: 0
+                {/* Feed */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {gameState.inputs.map((input, i) => {
+                        const p = gameState.players.find(pl => pl.name === input.playerName);
+                        return (
+                            <div key={i} className="animate-fade-in" style={{
+                                display: 'flex',
+                                gap: '12px',
+                                alignItems: 'center',
+                                padding: '12px',
+                                background: 'rgba(255,255,255,0.03)',
+                                borderRadius: '12px',
+                                borderLeft: `4px solid ${p?.color || 'transparent'}`
                             }}>
-                                {p?.avatar || '👤'}
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '50%',
+                                    background: p?.color || 'gray',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '20px', flexShrink: 0
+                                }}>
+                                    {p?.avatar || '👤'}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
+                                </div>
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
-                            </div>
-                        </div>
-                    );
-                })}
-                {gameState.inputs.length === 0 && (
-                    <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>Esperando el primer término...</p>
+                        );
+                    })}
+                    {gameState.inputs.length === 0 && (
+                        <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>Esperando el primer término...</p>
+                    )}
+                </div>
+
+                {/* Input Area */}
+                {!isKicked && isMyTurn ? (
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                            className="input-field"
+                            placeholder="Escribe tu término..."
+                            value={term}
+                            onChange={e => setTerm(e.target.value)}
+                            autoFocus
+                        />
+                        <button type="submit" className="btn-primary" style={{ width: 'auto' }}>
+                            Enviar
+                        </button>
+                    </form>
+                ) : (
+                    <div style={{ padding: '16px', borderRadius: '12px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', opacity: 0.7 }}>
+                        {isKicked ? 'Observando partida...' : `Esperando a ${activePlayerName}...`}
+                    </div>
                 )}
             </div>
-
-            {/* Input Area */}
-            {!isKicked && isMyTurn ? (
-                <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                        className="input-field"
-                        placeholder="Escribe tu término..."
-                        value={term}
-                        onChange={e => setTerm(e.target.value)}
-                        autoFocus
-                    />
-                    <button type="submit" className="btn-primary" style={{ width: 'auto' }}>
-                        Enviar
-                    </button>
-                </form>
-            ) : (
-                <div style={{ padding: '16px', borderRadius: '12px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', opacity: 0.7 }}>
-                    {isKicked ? 'Observando partida...' : `Esperando a ${activePlayerName}...`}
-                </div>
-            )}
-        </div>
+        </>
     );
 };

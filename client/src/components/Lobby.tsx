@@ -1,5 +1,5 @@
 import React from 'react';
-import { HamburgerMenu } from './HamburgerMenu';
+import { Header } from './Header';
 
 interface Player {
     id: string;
@@ -49,10 +49,9 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
 
     return (
         <>
-            <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={isHost ? onLeave : undefined} />
+            <Header title="SALA" theme={theme} onToggleTheme={onToggleTheme} isHost={isHost} onCloseRoom={isHost ? onLeave : undefined} />
             <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
                 <div style={{ textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>CÓDIGO DE SALA</p>
                     <div
                         onClick={copyCode}
                         style={{
