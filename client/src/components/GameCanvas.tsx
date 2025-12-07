@@ -308,10 +308,14 @@ export const GameCanvas: React.FC<Props> = ({
                             minHeight: '48px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            whiteSpace: 'normal',
+                            textAlign: 'center',
+                            lineHeight: '1.2',
+                            padding: '4px'
                         }}
                     >
-                        {holdingRole ? (myRole === 'impostor' ? 'IMPOSTOR' : 'CIVIL') : '👆 Pulsa para ver tu ROL'}
+                        {holdingRole ? (myRole === 'impostor' ? 'IMPOSTOR' : 'CIVIL') : '👆 Pulsa ver ROL'}
                     </button>
                 )}
 
@@ -331,22 +335,17 @@ export const GameCanvas: React.FC<Props> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden'
+                        whiteSpace: 'normal',
+                        textAlign: 'center',
+                        lineHeight: '1.2',
+                        padding: '4px'
                     }}
                 >
-                    <span style={{
-                        display: 'inline-block',
-                        maxWidth: '100%',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                    }}>
-                        {holdingWord ? (
-                            gameState.difficulty === 'hard'
-                                ? (myRole === 'impostor' ? gameState.impostorWord : gameState.word)
-                                : (myRole === 'impostor' ? 'IMPOSTOR 🤫' : gameState.word)
-                        ) : '👆 Pulsa para ver PALABRA'}
-                    </span>
+                    {holdingWord ? (
+                        gameState.difficulty === 'hard'
+                            ? (myRole === 'impostor' ? gameState.impostorWord : gameState.word)
+                            : (myRole === 'impostor' ? 'IMPOSTOR 🤫' : gameState.word)
+                    ) : '👆 Pulsa ver PALABRA'}
                 </button>
             </div>
 
