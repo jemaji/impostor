@@ -199,16 +199,11 @@ io.on('connection', (socket) => {
         room.inputsInCurrentRound++;
 
         if (room.inputsInCurrentRound >= activePlayers.length) {
-            // Emit update first so last term is visible
+            // Immediately go to voting
+            room.state = 'voting';
+            room.votes = {};
+            room.inputsInCurrentRound = 0;
             io.to(data.code).emit('room_update', room);
-
-            // Wait 2 seconds before going to voting
-            setTimeout(() => {
-                room.state = 'voting';
-                room.votes = {};
-                room.inputsInCurrentRound = 0;
-                io.to(data.code).emit('room_update', room);
-            }, 2000);
         } else {
             io.to(data.code).emit('room_update', room);
         }
