@@ -61,12 +61,34 @@ io.on('connection', (socket) => {
         // RECONNECTION LOGIC
         const existingPlayer = room.players.find(p => p.userId === data.userId);
         if (existingPlayer) {
-            console.log(`Player ${existingPlayer.name} reconnected. Updating socket ID and data.`);
+            const oldSocketId = existingPlayer.id;
+            console.log(`Player ${existingPlayer.name} reconnected (Socket: ${oldSocketId} -> ${socket.id}). Updating data.`);
+
             existingPlayer.id = socket.id; // Update socket ID
             existingPlayer.disconnected = false; // Mark as reconnected
             delete existingPlayer.disconnectedAt;
 
-            // Update metadata if provided (allows changing avatar/color on rejoin)
+            // UPDATE REFERENCES IN GAME STATE
+            // 1. Impostor IDs
+            if (room.impostorIds.includes(oldSocketId)) {
+                room.impostorIds = room.impostorIds.map(id => id === oldSocketId ? socket.id : id);
+            }
+            // 2. Kicked IDs
+            if (room.kickedIds.includes(oldSocketId)) {
+                room.kickedIds = room.kickedIds.map(id => id === oldSocketId ? socket.id : id);
+            }
+            // 3. Votes (both keys (voter) and values (target))
+            // Update keys: create new object
+            const newVotes = {};
+            for (const voterId in room.votes) {
+                const targetId = room.votes[voterId];
+                const newVoterId = voterId === oldSocketId ? socket.id : voterId;
+                const newTargetId = targetId === oldSocketId ? socket.id : targetId;
+                newVotes[newVoterId] = newTargetId;
+            }
+            room.votes = newVotes;
+
+            // Update metadata if provided
             if (data.name) existingPlayer.name = data.name;
             if (data.color) existingPlayer.color = data.color;
             if (data.avatar) existingPlayer.avatar = data.avatar;
