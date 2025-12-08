@@ -122,7 +122,7 @@ export const GameCanvas: React.FC<Props> = ({
                         })}
                     </div>
                     <p>Palabra secreta: <strong>{gameState.word}</strong></p>
-                    <button className="btn-primary" onClick={onRestart}>Volver al Lobby</button>
+                    <button className="btn-primary" onClick={onRestart}>Volver a la Sala</button>
                 </div>
             </div>
         );
