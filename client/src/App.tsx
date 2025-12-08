@@ -40,6 +40,8 @@ interface GameState {
     customPunishment: string;
   };
   turnExpiresAt?: number | null;
+  roundExpiresAt?: number | null;
+  votingExpiresAt?: number | null;
 }
 
 interface EjectionData {
@@ -415,8 +417,14 @@ function App() {
               onCloseRoom={handleLeave}
               onToggleTheme={toggleTheme}
               turnExpiresAt={gameState.turnExpiresAt}
+              roundExpiresAt={gameState.roundExpiresAt}
+              votingExpiresAt={gameState.votingExpiresAt}
               totalTime={gameState.settings?.timeLimit || 15}
+              roundTotalTime={gameState.settings?.roundTimeLimit || 60}
+              votingTotalTime={gameState.settings?.votingTimeLimit || 30}
               timerEnabled={gameState.settings?.timer || false}
+              roundTimerEnabled={gameState.settings?.roundTimer || false}
+              votingTimerEnabled={gameState.settings?.votingTimer || false}
             />
           )}
         </>

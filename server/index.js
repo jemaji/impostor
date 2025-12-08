@@ -22,42 +22,81 @@ const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word
 
 const generateCode = () => Math.random().toString(36).substring(2, 6).toUpperCase();
 
-const startTurnTimer = (room, code, io) => {
-    if (room.turnTimer) clearTimeout(room.turnTimer);
+// Turn timer removed for simultaneous writing
 
-    if (room.state !== 'playing' || !room.settings?.timer) {
-        room.turnExpiresAt = null;
+
+const startRoundTimer = (room, code, io) => {
+    if (room.roundTimer) clearTimeout(room.roundTimer);
+
+    if (room.state !== 'playing' || !room.settings?.roundTimer) {
+        room.roundExpiresAt = null;
         return;
     }
 
-    const duration = (room.settings.timeLimit || 15) * 1000;
-    room.turnExpiresAt = Date.now() + duration;
+    const duration = (room.settings.roundTimeLimit || 60) * 1000;
+    room.roundExpiresAt = Date.now() + duration;
 
-    // Emit update so clients see the timer
-    io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+    io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
 
-    room.turnTimer = setTimeout(() => {
-        handleTurnTimeout(room, code, io);
+    room.roundTimer = setTimeout(() => {
+        handleRoundTimeout(room, code, io);
     }, duration);
 };
 
-const handleTurnTimeout = (room, code, io) => {
+const handleRoundTimeout = (room, code, io) => {
     if (room.state !== 'playing') return;
 
-    const currentPlayer = room.players[room.turnIndex];
-    console.log(`Time out for ${currentPlayer.name}`);
+    console.log(`Global Round Timeout for room ${code}`);
 
-    // Apply punishment logic
-    if (room.settings?.punishment) {
-        const punishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
-        const punishmentTerm = `🤡 CASTIGO: ${punishment}`;
-        processSubmission(room, code, io, currentPlayer.name, punishmentTerm, true);
-    } else {
-        // Shame phrase
-        const phrase = SHAME_PHRASES[Math.floor(Math.random() * SHAME_PHRASES.length)];
-        const shameTerm = `😳 "${phrase}"`;
-        processSubmission(room, code, io, currentPlayer.name, shameTerm, true);
+    // Find players who haven't submitted yet
+    const submittedPlayerNames = room.inputs.map(i => i.playerName);
+    const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
+
+    activePlayers.forEach(player => {
+        if (!submittedPlayerNames.includes(player.name)) {
+            // Apply punishment logic or shame phrase
+            if (room.settings?.punishment) {
+                const punishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
+                const punishmentTerm = `🤡 CASTIGO: ${punishment}`;
+                processSubmission(room, code, io, player.name, punishmentTerm, true);
+            } else {
+                const phrase = SHAME_PHRASES[Math.floor(Math.random() * SHAME_PHRASES.length)];
+                const shameTerm = `😳 "${phrase}"`;
+                processSubmission(room, code, io, player.name, shameTerm, true);
+            }
+        }
+    });
+};
+
+const startVotingTimer = (room, code, io) => {
+    if (room.votingTimer) clearTimeout(room.votingTimer);
+
+    if (room.state !== 'voting' || !room.settings?.votingTimer) {
+        room.votingExpiresAt = null;
+        return;
     }
+
+    const duration = (room.settings.votingTimeLimit || 30) * 1000;
+    room.votingExpiresAt = Date.now() + duration;
+
+    io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
+
+    room.votingTimer = setTimeout(() => {
+        handleVotingTimeout(room, code, io);
+    }, duration);
+};
+
+const handleVotingTimeout = (room, code, io) => {
+    if (room.state !== 'voting') return;
+
+    console.log(`Voting Timeout for room ${code}`);
+
+    // Force tally votes
+    tallyVotes(room, code, io);
+};
+
+const handleTurnTimeout = (room, code, io) => {
+    // Deprecated for simultaneous writing
 };
 
 const processSubmission = (room, code, io, playerName, term, isAuto = false) => {
@@ -66,27 +105,24 @@ const processSubmission = (room, code, io, playerName, term, isAuto = false) => 
     if (room.turnTimer) clearTimeout(room.turnTimer);
     room.turnExpiresAt = null;
 
-    // Find next active player
-    let nextIndex = (room.turnIndex + 1) % room.players.length;
-    let loops = 0;
-    while (room.kickedIds.includes(room.players[nextIndex].id) && loops < room.players.length) {
-        nextIndex = (nextIndex + 1) % room.players.length;
-        loops++;
-    }
-    room.turnIndex = nextIndex;
+    // Simultaneous writing: no turn index update needed
 
     const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
-    room.inputsInCurrentRound++;
+    // Count unique players who have submitted
+    const submittedPlayers = new Set(room.inputs.map(i => i.playerName));
 
-    if (room.inputsInCurrentRound >= activePlayers.length) {
+    if (submittedPlayers.size >= activePlayers.length) {
+        if (room.roundTimer) clearTimeout(room.roundTimer);
+        room.roundExpiresAt = null;
+
         room.state = 'voting';
         room.votes = {};
         room.inputsInCurrentRound = 0;
-        io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+        io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
+        startVotingTimer(room, code, io);
     } else {
-        // Start timer for next player
-        io.to(code).emit('room_update', { ...room, turnTimer: undefined });
-        startTurnTimer(room, code, io);
+        // Just update state so others see "Waiting..."
+        io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
     }
 };
 
@@ -122,7 +158,11 @@ io.on('connection', (socket) => {
                 timer: false,
                 timeLimit: 10,
                 punishment: false,
-                customPunishment: ''
+                customPunishment: '',
+                roundTimer: false,
+                roundTimeLimit: 60,
+                votingTimer: false,
+                votingTimeLimit: 30
             }
         };
         socket.join(code);
@@ -267,7 +307,7 @@ io.on('connection', (socket) => {
             room.impostorIds.push(room.players[idx].id);
         }
 
-        room.turnIndex = Math.floor(Math.random() * playerCount);
+        room.turnIndex = -1; // Simultaneous writing
         room.inputs = [];
         room.votes = {}; // { [voterId]:  targetId | 'skip' }
         room.kickedIds = []; // Array of ids
@@ -275,7 +315,7 @@ io.on('connection', (socket) => {
         room.inputsInCurrentRound = 0;
 
         io.to(data.code).emit('game_started', room);
-        startTurnTimer(room, data.code, io);
+        startRoundTimer(room, data.code, io);
     });
 
     socket.on('submit_term', (data) => {
@@ -294,65 +334,67 @@ io.on('connection', (socket) => {
         const voteCount = Object.keys(room.votes).length;
 
         if (voteCount >= activePlayers.length) {
-            // Tally votes
-            const counts = {};
-            for (const vid in room.votes) {
-                const target = room.votes[vid];
-                counts[target] = (counts[target] || 0) + 1;
-            }
-
-            let maxVotes = 0;
-            let candidate = null;
-            let tie = false;
-
-            for (const target in counts) {
-                if (counts[target] > maxVotes) {
-                    maxVotes = counts[target];
-                    candidate = target;
-                    tie = false;
-                } else if (counts[target] === maxVotes) {
-                    tie = true;
-                }
-            }
-
-            if (!tie && candidate && candidate !== 'skip') {
-                room.kickedIds.push(candidate);
-
-                // Check Win Conditions
-                const impostorsLeft = room.impostorIds.filter(id => !room.kickedIds.includes(id)).length;
-                const civiliansLeft = room.players.filter(p => !room.impostorIds.includes(p.id) && !room.kickedIds.includes(p.id)).length;
-
-                if (impostorsLeft === 0) {
-                    room.state = 'game_over';
-                    room.winner = 'civilians';
-                } else if (impostorsLeft >= civiliansLeft) {
-                    room.state = 'game_over';
-                    room.winner = 'impostors';
-                } else {
-                    room.state = 'playing';
-                }
-            } else {
-                // Tie or Skip
-                room.state = 'playing';
-            }
-
-            if (room.state === 'playing') {
-                // Don't reset turnIndex - maintain the circular order
-                // Just ensure current turn player is active
-                let loops = 0;
-                while (room.kickedIds.includes(room.players[room.turnIndex].id) && loops < room.players.length) {
-                    room.turnIndex = (room.turnIndex + 1) % room.players.length;
-                    loops++;
-                }
-                io.to(data.code).emit('room_update', room);
-                startTurnTimer(room, data.code, io);
-            } else {
-                io.to(data.code).emit('room_update', room);
-            }
+            tallyVotes(room, data.code, io);
         } else {
             io.to(data.code).emit('room_update', room);
         }
     });
+
+    const tallyVotes = (room, code, io) => {
+        if (room.votingTimer) clearTimeout(room.votingTimer);
+        room.votingExpiresAt = null;
+
+        // Tally votes
+        const counts = {};
+        for (const vid in room.votes) {
+            const target = room.votes[vid];
+            counts[target] = (counts[target] || 0) + 1;
+        }
+
+        let maxVotes = 0;
+        let candidate = null;
+        let tie = false;
+
+        for (const target in counts) {
+            if (counts[target] > maxVotes) {
+                maxVotes = counts[target];
+                candidate = target;
+                tie = false;
+            } else if (counts[target] === maxVotes) {
+                tie = true;
+            }
+        }
+
+        if (!tie && candidate && candidate !== 'skip') {
+            room.kickedIds.push(candidate);
+
+            // Check Win Conditions
+            const impostorsLeft = room.impostorIds.filter(id => !room.kickedIds.includes(id)).length;
+            const civiliansLeft = room.players.filter(p => !room.impostorIds.includes(p.id) && !room.kickedIds.includes(p.id)).length;
+
+            if (impostorsLeft === 0) {
+                room.state = 'game_over';
+                room.winner = 'civilians';
+            } else if (impostorsLeft >= civiliansLeft) {
+                room.state = 'game_over';
+                room.winner = 'impostors';
+            } else {
+                room.state = 'playing';
+            }
+        } else {
+            // Tie or Skip
+            room.state = 'playing';
+        }
+
+        if (room.state === 'playing') {
+            // Simultaneous writing: just reset inputs for next round
+            room.inputs = [];
+            io.to(code).emit('room_update', room);
+            startRoundTimer(room, code, io);
+        } else {
+            io.to(code).emit('room_update', room);
+        }
+    };
 
     socket.on('restart_game', (data) => {
         const room = rooms[data.code];
@@ -365,7 +407,11 @@ io.on('connection', (socket) => {
         room.impostorIds = [];
         room.inputsInCurrentRound = 0;
         if (room.turnTimer) clearTimeout(room.turnTimer);
+        if (room.roundTimer) clearTimeout(room.roundTimer);
+        if (room.votingTimer) clearTimeout(room.votingTimer);
         room.turnExpiresAt = null;
+        room.roundExpiresAt = null;
+        room.votingExpiresAt = null;
         io.to(data.code).emit('room_update', room);
     });
 
