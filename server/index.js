@@ -20,80 +20,6 @@ const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word
 
 const generateCode = () => Math.random().toString(36).substring(2, 6).toUpperCase();
 
-const PUNISHMENTS = [
-    "Soy tonto", "Me huelen los pies", "Me gusta comer mocos",
-    "Soy un bebé llorón", "No sé jugar", "Mis pedos huelen mal",
-    "Ayer me hice pis", "Quiero a mi mamá", "Soy un gallina",
-    "Me he tirado un pedo", "Tengo miedo", "Soy un perdedor"
-];
-
-// Helper to process submission and advance turn
-function processSubmission(room, playerName, term, io) {
-    // Clear existing timer if any
-    if (room.timerId) {
-        clearTimeout(room.timerId);
-        room.timerId = null;
-        room.turnExpiresAt = null;
-    }
-
-    room.inputs.push({ playerName, term });
-
-    // Find next active player
-    let nextIndex = (room.turnIndex + 1) % room.players.length;
-    let loops = 0;
-    while (room.kickedIds.includes(room.players[nextIndex].id) && loops < room.players.length) {
-        nextIndex = (nextIndex + 1) % room.players.length;
-        loops++;
-    }
-    room.turnIndex = nextIndex;
-
-    // Check if round finished
-    const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
-    room.inputsInCurrentRound++;
-
-    if (room.inputsInCurrentRound >= activePlayers.length) {
-        room.state = 'voting';
-        room.votes = {};
-        room.inputsInCurrentRound = 0;
-        room.timerId = null;
-        room.turnExpiresAt = null;
-    } else {
-        // Start timer for next player if enabled
-        startTurnTimer(room, io);
-    }
-    io.to(room.code).emit('room_update', room);
-}
-
-function startTurnTimer(room, io) {
-    if (!room.settings?.timer) return;
-    if (room.state !== 'playing') return;
-
-    if (room.timerId) clearTimeout(room.timerId);
-
-    const timeLimitMs = room.settings.timeLimit * 1000;
-    room.turnExpiresAt = Date.now() + timeLimitMs;
-
-    room.timerId = setTimeout(() => {
-        handleTurnTimeout(room, io);
-    }, timeLimitMs);
-}
-
-function handleTurnTimeout(room, io) {
-    const currentPlayer = room.players[room.turnIndex];
-    if (!currentPlayer) return;
-
-    let term = "...";
-    if (!room.settings.punishment) {
-        const noPunishmentOptions = ["...", "ZzZ me duermo", "No sé qué decir", "Tiempo agotado"];
-        term = noPunishmentOptions[Math.floor(Math.random() * noPunishmentOptions.length)];
-    } else {
-        term = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
-    }
-
-    console.log(`Time expired for ${currentPlayer.name}, submitting: ${term}`);
-    processSubmission(room, currentPlayer.name, term, io);
-}
-
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -113,12 +39,6 @@ io.on('connection', (socket) => {
             state: 'lobby',
             difficulty: 'normal', // Default difficulty
             category: null, // null = Mix parameters
-            settings: {
-                timer: false,
-                timeLimit: 15,
-                punishment: false,
-                customPunishment: 'Soy tonto'
-            },
             word: '',
             impostorWord: '', // For hard mode
             impostorIds: [],
@@ -127,9 +47,7 @@ io.on('connection', (socket) => {
             kickedIds: [],
             votes: {},
             winner: null,
-            inputsInCurrentRound: 0,
-            turnExpiresAt: null,
-            timerId: null
+            inputsInCurrentRound: 0
         };
         socket.join(code);
         callback({ code });
@@ -225,15 +143,6 @@ io.on('connection', (socket) => {
         io.to(data.code).emit('room_update', room);
     });
 
-    socket.on('update_settings', (data) => {
-        const room = rooms[data.code];
-        if (!room || room.state !== 'lobby') return;
-        if (data.settings) {
-            room.settings = { ...room.settings, ...data.settings };
-        }
-        io.to(data.code).emit('room_update', room);
-    });
-
     socket.on('start_game', (data) => {
         const room = rooms[data.code];
         if (!room) return;
@@ -282,16 +191,37 @@ io.on('connection', (socket) => {
         room.inputsInCurrentRound = 0;
 
         io.to(data.code).emit('game_started', room);
-
-        // Start timer for first player
-        startTurnTimer(room, io);
-        io.to(data.code).emit('room_update', room); // Send initial timber info
     });
 
     socket.on('submit_term', (data) => {
         const room = rooms[data.code];
         if (!room) return;
-        processSubmission(room, data.playerName, data.term, io);
+
+        room.inputs.push({ playerName: data.playerName, term: data.term });
+
+        // Find next active player
+        let nextIndex = (room.turnIndex + 1) % room.players.length;
+        let loops = 0;
+        while (room.kickedIds.includes(room.players[nextIndex].id) && loops < room.players.length) {
+            nextIndex = (nextIndex + 1) % room.players.length;
+            loops++;
+        }
+        room.turnIndex = nextIndex;
+
+        // Check if round finished (everyone active has submitted)
+        const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
+
+        room.inputsInCurrentRound++;
+
+        if (room.inputsInCurrentRound >= activePlayers.length) {
+            // Immediately go to voting
+            room.state = 'voting';
+            room.votes = {};
+            room.inputsInCurrentRound = 0;
+            io.to(data.code).emit('room_update', room);
+        } else {
+            io.to(data.code).emit('room_update', room);
+        }
     });
 
     socket.on('vote', (data) => {
@@ -354,12 +284,6 @@ io.on('connection', (socket) => {
                     room.turnIndex = (room.turnIndex + 1) % room.players.length;
                     loops++;
                 }
-                startTurnTimer(room, io); // Restart timer for next round/turn
-            } else {
-                // Game Over or other state - clear timer
-                if (room.timerId) clearTimeout(room.timerId);
-                room.timerId = null;
-                room.turnExpiresAt = null;
             }
 
             io.to(data.code).emit('room_update', room);
@@ -371,7 +295,6 @@ io.on('connection', (socket) => {
     socket.on('restart_game', (data) => {
         const room = rooms[data.code];
         if (!room) return;
-        if (room.timerId) clearTimeout(room.timerId);
         room.state = 'lobby';
         room.inputs = [];
         room.votes = {};
@@ -379,8 +302,6 @@ io.on('connection', (socket) => {
         room.winner = null;
         room.impostorIds = [];
         room.inputsInCurrentRound = 0;
-        room.timerId = null;
-        room.turnExpiresAt = null;
         io.to(data.code).emit('room_update', room);
     });
 
@@ -390,7 +311,6 @@ io.on('connection', (socket) => {
 
         if (data.isHost) {
             // Host is leaving - close the room for everyone
-            if (room.timerId) clearTimeout(room.timerId);
             io.to(data.code).emit('room_closed');
             delete rooms[data.code];
         } else {
@@ -401,7 +321,6 @@ io.on('connection', (socket) => {
 
                 // If no players left, delete room
                 if (room.players.length === 0) {
-                    if (room.timerId) clearTimeout(room.timerId);
                     delete rooms[data.code];
                 } else {
                     // Assign new host if needed
@@ -442,7 +361,6 @@ io.on('connection', (socket) => {
                 // If only 1 or 0 active players, close the room
                 if (activePlayers.length <= 1) {
                     console.log(`Room ${code} closing - only ${activePlayers.length} active player(s)`);
-                    if (room.timerId) clearTimeout(room.timerId);
                     io.to(code).emit('room_closed');
                     delete rooms[code];
                     return;
@@ -452,7 +370,6 @@ io.on('connection', (socket) => {
                 if ((room.state === 'playing' || room.state === 'voting') && activePlayers.length < 3) {
                     room.paused = true;
                     room.pauseReason = 'Esperando reconexión de jugadores... (mínimo 3 jugadores)';
-                    if (room.timerId) clearTimeout(room.timerId); // Pause timer
                 }
 
                 // Notify host if players disconnected
@@ -472,7 +389,6 @@ io.on('connection', (socket) => {
                     if (currentRoom) {
                         const allDisconnected = currentRoom.players.every(p => p.disconnected);
                         if (allDisconnected) {
-                            if (currentRoom.timerId) clearTimeout(currentRoom.timerId);
                             delete rooms[code];
                         }
                     }

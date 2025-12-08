@@ -21,14 +21,7 @@ interface GameState {
   players: Player[];
   state: 'lobby' | 'playing' | 'voting' | 'game_over';
   difficulty: 'normal' | 'hard';
-  category?: string | null;
-  settings?: {
-    timer: boolean;
-    timeLimit: number;
-    punishment: boolean;
-    customPunishment: string;
-  };
-  turnExpiresAt?: number | null;
+  category?: string | null; // Added category
   word: string;
   impostorWord: string;
   impostorIds: string[];
@@ -273,12 +266,6 @@ function App() {
     }
   }
 
-  const handleUpdateSettings = (settings: any) => {
-    if (gameState) {
-      socket.emit('update_settings', { code: gameState.code, settings });
-    }
-  }
-
   // Rendering logic
   if (!gameState) {
     return <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />;
@@ -303,13 +290,11 @@ function App() {
           isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
           difficulty={gameState.difficulty || 'normal'}
           category={gameState.category || null}
-          settings={gameState.settings}
           theme={theme}
           onStart={handleStart}
           onLeave={handleLeave}
           onDifficultyChange={handleDifficultyChange}
           onCategoryChange={handleCategoryChange}
-          onUpdateSettings={handleUpdateSettings}
           onToggleTheme={toggleTheme}
         />
       ) : (
@@ -322,9 +307,6 @@ function App() {
           isKicked={gameState.kickedIds.includes(socket.id || '')}
           isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
           theme={theme}
-          turnExpiresAt={gameState.turnExpiresAt}
-          totalTime={gameState.settings?.timeLimit || 15}
-          timerEnabled={gameState.settings?.timer || false}
           onSubmit={handleSubmit}
           onVote={handleVote}
           onRestart={handleRestart}

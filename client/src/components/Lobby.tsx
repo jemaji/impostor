@@ -9,26 +9,17 @@ interface Player {
     avatar?: string;
 }
 
-interface Settings {
-    timer: boolean;
-    timeLimit: number;
-    punishment: boolean;
-    customPunishment: string;
-}
-
 interface Props {
     roomCode: string;
     players: Player[];
     isHost: boolean;
     difficulty: 'normal' | 'hard';
     category: string | null;
-    settings?: Settings;
     theme: 'dark' | 'light';
     onStart: () => void;
     onLeave: () => void;
     onDifficultyChange: (difficulty: 'normal' | 'hard') => void;
     onCategoryChange: (category: string | null) => void;
-    onUpdateSettings: (settings: Partial<Settings>) => void;
     onToggleTheme: () => void;
 }
 
@@ -38,7 +29,7 @@ const CATEGORIES = [
     "Música", "Transporte", "Naturaleza", "Videojuegos/Geek", "Adultos (+18)"
 ];
 
-export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, category, settings, theme, onStart, onLeave, onDifficultyChange, onCategoryChange, onUpdateSettings, onToggleTheme }) => {
+export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, category, theme, onStart, onLeave, onDifficultyChange, onCategoryChange, onToggleTheme }) => {
     const [touchStartX, setTouchStartX] = React.useState(0);
 
     const copyCode = () => {
@@ -283,93 +274,6 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                         </div>
                     </div>
                 )}
-
-                {/* Timer Settings */}
-                <div className="animate-fade-in" style={{
-                    marginTop: '8px',
-                    paddingTop: '16px',
-                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '1.2rem' }}>⏱️</span>
-                            <span style={{ fontWeight: 'bold' }}>Temporizador</span>
-                        </div>
-                        {isHost ? (
-                            <input
-                                type="checkbox"
-                                checked={settings?.timer || false}
-                                onChange={(e) => onUpdateSettings({ timer: e.target.checked })}
-                                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                            />
-                        ) : (
-                            <span style={{
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                background: settings?.timer ? 'var(--success)' : 'rgba(128,128,128,0.3)',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
-                                color: 'white'
-                            }}>
-                                {settings?.timer ? 'ON' : 'OFF'}
-                            </span>
-                        )}
-                    </div>
-
-                    {settings?.timer && (
-                        <div style={{
-                            padding: '12px',
-                            background: theme === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.2)',
-                            borderRadius: '8px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '12px'
-                        }}>
-                            {/* Time Limit */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <label style={{ fontSize: '0.9rem' }}>Tiempo por turno:</label>
-                                {isHost ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <input
-                                            type="number"
-                                            value={settings.timeLimit}
-                                            onChange={(e) => onUpdateSettings({ timeLimit: Math.max(5, Math.min(60, parseInt(e.target.value) || 15)) })}
-                                            style={{
-                                                width: '50px',
-                                                padding: '6px',
-                                                borderRadius: '6px',
-                                                border: '1px solid rgba(128,128,128,0.3)',
-                                                textAlign: 'center',
-                                                fontSize: '1rem'
-                                            }}
-                                        />
-                                        <span style={{ fontSize: '0.9rem' }}>seg</span>
-                                    </div>
-                                ) : (
-                                    <span style={{ fontWeight: 'bold' }}>{settings.timeLimit} seg</span>
-                                )}
-                            </div>
-
-                            {/* Punishment */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <label style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>😈 Modo Castigo</label>
-                                    <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>Palabras vergonzosas automáticas</span>
-                                </div>
-                                {isHost ? (
-                                    <input
-                                        type="checkbox"
-                                        checked={settings.punishment}
-                                        onChange={(e) => onUpdateSettings({ punishment: e.target.checked })}
-                                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                                    />
-                                ) : (
-                                    <span>{settings.punishment ? '✅' : '❌'}</span>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
             </div>
 
             {/* Action Buttons */}
