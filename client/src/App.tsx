@@ -5,6 +5,7 @@ import { Lobby } from './components/Lobby';
 import { GameCanvas } from './components/GameCanvas';
 import { EjectionAnimation } from './components/EjectionAnimation';
 import { audioManager } from './services/audioManager';
+import { GoogleAnalytics } from './components/GoogleAnalytics';
 import './styles/index.css';
 
 interface Player {
@@ -273,6 +274,7 @@ function App() {
 
   return (
     <>
+      <GoogleAnalytics />
       {ejectionData && (
         <EjectionAnimation
           name={ejectionData.name}
