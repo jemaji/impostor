@@ -268,53 +268,56 @@ function App() {
   }
 
   // Rendering logic
-  if (!gameState) {
-    return <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />;
-  }
-
   return (
     <>
       <GoogleAnalytics />
-      {ejectionData && (
-        <EjectionAnimation
-          name={ejectionData.name}
-          isImpostor={ejectionData.isImpostor}
-          color={ejectionData.color}
-          avatar={ejectionData.avatar}
-          onComplete={() => setEjectionData(null)}
-        />
-      )}
 
-      {gameState.state === 'lobby' ? (
-        <Lobby
-          roomCode={gameState.code}
-          players={gameState.players}
-          isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
-          difficulty={gameState.difficulty || 'normal'}
-          category={gameState.category || null}
-          theme={theme}
-          onStart={handleStart}
-          onLeave={handleLeave}
-          onDifficultyChange={handleDifficultyChange}
-          onCategoryChange={handleCategoryChange}
-          onToggleTheme={toggleTheme}
-        />
+      {!gameState ? (
+        <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />
       ) : (
-        <GameCanvas
-          gameState={gameState}
-          myId={socket.id || ''}
-          myRole={gameState.impostorIds.includes(socket.id || '') ? 'impostor' : 'civilian'}
-          isMyTurn={gameState.turnIndex !== -1 && gameState.players[gameState.turnIndex]?.id === socket.id && !gameState.kickedIds.includes(socket.id || '')}
-          activePlayerName={gameState.players[gameState.turnIndex]?.name || ''}
-          isKicked={gameState.kickedIds.includes(socket.id || '')}
-          isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
-          theme={theme}
-          onSubmit={handleSubmit}
-          onVote={handleVote}
-          onRestart={handleRestart}
-          onCloseRoom={handleLeave}
-          onToggleTheme={toggleTheme}
-        />
+        <>
+          {ejectionData && (
+            <EjectionAnimation
+              name={ejectionData.name}
+              isImpostor={ejectionData.isImpostor}
+              color={ejectionData.color}
+              avatar={ejectionData.avatar}
+              onComplete={() => setEjectionData(null)}
+            />
+          )}
+
+          {gameState.state === 'lobby' ? (
+            <Lobby
+              roomCode={gameState.code}
+              players={gameState.players}
+              isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
+              difficulty={gameState.difficulty || 'normal'}
+              category={gameState.category || null}
+              theme={theme}
+              onStart={handleStart}
+              onLeave={handleLeave}
+              onDifficultyChange={handleDifficultyChange}
+              onCategoryChange={handleCategoryChange}
+              onToggleTheme={toggleTheme}
+            />
+          ) : (
+            <GameCanvas
+              gameState={gameState}
+              myId={socket.id || ''}
+              myRole={gameState.impostorIds.includes(socket.id || '') ? 'impostor' : 'civilian'}
+              isMyTurn={gameState.turnIndex !== -1 && gameState.players[gameState.turnIndex]?.id === socket.id && !gameState.kickedIds.includes(socket.id || '')}
+              activePlayerName={gameState.players[gameState.turnIndex]?.name || ''}
+              isKicked={gameState.kickedIds.includes(socket.id || '')}
+              isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
+              theme={theme}
+              onSubmit={handleSubmit}
+              onVote={handleVote}
+              onRestart={handleRestart}
+              onCloseRoom={handleLeave}
+              onToggleTheme={toggleTheme}
+            />
+          )}
+        </>
       )}
     </>
   );
