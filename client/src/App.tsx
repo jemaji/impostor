@@ -52,6 +52,7 @@ interface EjectionData {
 function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [ejectionData, setEjectionData] = useState<EjectionData | null>(null);
+  const [showWakeUpMessage, setShowWakeUpMessage] = useState(false);
   const [myName, setMyName] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('impostor_theme');
@@ -210,6 +211,31 @@ function App() {
     };
   }, [userId]);
 
+  // Cold Start Detection for Free Tier Hosting
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    if (!socket.connected) {
+      timeout = setTimeout(() => {
+        if (!socket.connected) {
+          setShowWakeUpMessage(true);
+        }
+      }, 2000); // Wait 2s before showing "Waking up" message
+    }
+
+    const onConnect = () => {
+      setShowWakeUpMessage(false);
+      if (timeout) clearTimeout(timeout);
+    };
+
+    socket.on('connect', onConnect);
+
+    return () => {
+      socket.off('connect', onConnect);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, []);
+
   const handleCreate = (name: string, color: string, avatar: string) => {
     setMyName(name);
     // Persist details immediately
@@ -298,6 +324,39 @@ function App() {
   return (
     <>
       <GoogleAnalytics />
+
+      {showWakeUpMessage && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)',
+          animation: 'fadeIn 0.5s ease'
+        }}>
+          <div className="glass-panel" style={{
+            padding: '30px', maxWidth: '350px', textAlign: 'center', margin: '20px',
+            border: '1px solid var(--accent-secondary)'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>💤 ➜ 🚀</div>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'white', marginBottom: '10px' }}>
+              Despertando Servidor...
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '20px', lineHeight: '1.5' }}>
+              El servidor gratuito entra en reposo por inactividad.
+              <br /><br />
+              Por favor, <strong>espera un minutito</strong> mientras se inicia. ¡Gracias por la paciencia!
+            </p>
+            <div style={{
+              width: '40px', height: '40px',
+              border: '4px solid rgba(255,255,255,0.1)',
+              borderTop: '4px solid var(--accent-primary)',
+              borderRadius: '50%',
+              margin: '0 auto',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          </div>
+        </div>
+      )}
 
       {!gameState ? (
         <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />
