@@ -33,14 +33,28 @@ class AudioManager {
   }
 
   vibrate(pattern: number | number[]) {
-    if (this.isMuted) return; // Optional: mute vibration too? Usually separate, but for simplicity keeping together.
-    if (navigator.vibrate) {
-      navigator.vibrate(pattern);
+    // if (this.isMuted) return; // Allow vibration even if muted for testing
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      const success = navigator.vibrate(pattern);
+      console.log(
+        `[Vibration] Intentando vibrar: ${pattern}. Éxito: ${success}`
+      );
+    } else {
+      console.warn("[Vibration] API no soportada en este navegador");
     }
   }
 
   play(
-    type: "click" | "pop" | "turn" | "vote" | "success" | "failure" | "reveal"
+    type:
+      | "click"
+      | "pop"
+      | "turn"
+      | "vote"
+      | "success"
+      | "failure"
+      | "reveal"
+      | "tick"
+      | "timeout"
   ) {
     if (this.isMuted || !this.initialized || !this.audioCtx) return;
 
@@ -103,6 +117,27 @@ class AudioManager {
         gain.gain.setValueAtTime(0.1, now);
         osc.start(now);
         osc.stop(now + 0.3);
+        break;
+
+      case "tick":
+        // Short high-pitch tick like a clock
+        osc.type = "square";
+        osc.frequency.setValueAtTime(1000, now);
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+        break;
+
+      case "timeout":
+        // Descending low tone (Time's up!)
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.linearRampToValueAtTime(50, now + 0.5);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
         break;
 
       case "reveal": // Dramatic reveal

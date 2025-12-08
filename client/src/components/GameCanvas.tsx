@@ -1,14 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
+import { audioManager } from '../services/audioManager';
+import { useRef } from 'react';
 
 const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: number }) => {
     const [timeLeft, setTimeLeft] = useState(totalTime);
+
+    const lastTickRef = useRef<number>(totalTime);
+    const hasTimedOutRef = useRef<boolean>(false);
+
+    useEffect(() => {
+        // Reset refs when timer restarts (expiresAt changes)
+        lastTickRef.current = Math.ceil((expiresAt - Date.now()) / 1000);
+        hasTimedOutRef.current = false;
+    }, [expiresAt]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             const now = Date.now();
             const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
             setTimeLeft(remaining);
+
+            // Audio/Haptic Tick (Last 5 seconds)
+            if (remaining <= 5 && remaining > 0 && lastTickRef.current !== remaining) {
+                audioManager.play('tick');
+                audioManager.vibrate(50);
+                lastTickRef.current = remaining;
+            }
+
+            // Timeout Sound
+            if (remaining === 0 && !hasTimedOutRef.current) {
+                audioManager.play('timeout');
+                audioManager.vibrate(500); // Long vibration
+                hasTimedOutRef.current = true;
+            }
+
             if (remaining <= 0) clearInterval(interval);
         }, 100);
         return () => clearInterval(interval);
@@ -26,7 +52,7 @@ const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: n
                 <path
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none"
-                    stroke="rgba(255,255,255,0.1)"
+                    stroke="var(--glass-border)"
                     strokeWidth="3"
                 />
                 <path
@@ -38,7 +64,7 @@ const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: n
                     style={{ transition: 'stroke-dasharray 0.5s linear, stroke 0.5s ease' }}
                 />
             </svg>
-            <span style={{ position: 'absolute', fontWeight: 'bold', color: 'white', fontSize: '1.1rem' }}>{timeLeft}</span>
+            <span style={{ position: 'absolute', fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '1.1rem' }}>{timeLeft}</span>
         </div>
     );
 };
@@ -427,9 +453,29 @@ export const GameCanvas: React.FC<Props> = ({
                 )}
             </div>
 
+            {/* Input Area */}
+            {!isKicked && isMyTurn ? (
+                <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                        className="input-field"
+                        placeholder="Escribe tu término..."
+                        value={term}
+                        onChange={e => setTerm(e.target.value)}
+                        autoFocus
+                    />
+                    <button type="submit" className="btn-primary" style={{ width: 'auto' }}>
+                        Enviar
+                    </button>
+                </form>
+            ) : (
+                <div style={{ padding: '16px', borderRadius: '12px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', opacity: 0.7 }}>
+                    {isKicked ? 'Observando partida...' : `Esperando a ${activePlayerName}...`}
+                </div>
+            )}
+
             {/* Feed */}
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {gameState.inputs.map((input, i) => {
+                {gameState.inputs.slice().reverse().map((input, i) => {
                     const p = gameState.players.find(pl => pl.name === input.playerName);
                     return (
                         <div key={i} className="animate-fade-in" style={{
@@ -462,24 +508,7 @@ export const GameCanvas: React.FC<Props> = ({
             </div>
 
             {/* Input Area */}
-            {!isKicked && isMyTurn ? (
-                <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                        className="input-field"
-                        placeholder="Escribe tu término..."
-                        value={term}
-                        onChange={e => setTerm(e.target.value)}
-                        autoFocus
-                    />
-                    <button type="submit" className="btn-primary" style={{ width: 'auto' }}>
-                        Enviar
-                    </button>
-                </form>
-            ) : (
-                <div style={{ padding: '16px', borderRadius: '12px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', opacity: 0.7 }}>
-                    {isKicked ? 'Observando partida...' : `Esperando a ${activePlayerName}...`}
-                </div>
-            )}
+
         </div>
 
     );
