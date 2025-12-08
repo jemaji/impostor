@@ -35,7 +35,7 @@ export const GoogleAnalytics = () => {
 
         console.log('📊 [GA Init] Loading script for:', gaId);
         gtag('js', new Date());
-        gtag('config', gaId);
+        gtag('config', gaId, { 'debug_mode': true }); // Force Debug Mode for instant tracking
 
     }, [gaId]);
 
