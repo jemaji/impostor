@@ -9,9 +9,13 @@ declare global {
 
 export const GoogleAnalytics = () => {
     const gaId = import.meta.env.VITE_GA_ID;
+    console.log('📊 [Analytics Debug] GA ID:', gaId); // Debug line
 
     useEffect(() => {
-        if (!gaId) return;
+        if (!gaId) {
+            console.warn('⚠️ No GA ID found');
+            return;
+        }
 
         // Check if script already exists to avoid duplicates
         if (document.querySelector(`script[src*="googletagmanager.com/gtag/js"]`)) return;

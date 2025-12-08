@@ -80,14 +80,14 @@ Si quieres medir cuánta gente juega a tu juego:
 3.  Ponle nombre (ej: "Impostor") y selecciona tu zona horaria.
 4.  En "Elegir plataforma", selecciona **Web**.
 5.  Pon la URL de tu juego (la de Vercel) y un nombre.
-6.  Al crear el flujo, verás un **"ID DE MEDICIÓN"** que empieza por `G-` (ej: `G-X1Y2Z3`). **Cópialo.**
+6.  Al crear el flujo, verás un **"ID DE MEDICIÓN"** que empieza por `G-NTSRXPXG98`. **Cópialo.**
 7.  **En Local:**
     - Abre el archivo `client/.env`.
-    - Pega tu ID: `VITE_GA_ID=G-TU_CODIGO_AQUI`
+    - Pega tu ID: `VITE_GA_ID=G-NTSRXPXG98`
 8.  **En Producción (Vercel):**
     - Ve a tu proyecto en Vercel.
     - Settings -> Environment Variables.
     - Añade una nueva variable:
       - Key: `VITE_GA_ID`
-      - Value: `G-TU_CODIGO_AQUI`
+      - Value: `G-NTSRXPXG98`
     - Haz un "Redeploy" para que se apliquen los cambios.
