@@ -53,3 +53,18 @@ Vercel te dará una URL (ej: `https://impostor-app.vercel.app`).
 
 - **"No conecta al servidor"**: Verifica que en Vercel, la variable `VITE_SERVER_URL` no tenga una barra `/` al final (aunque normalmente da igual, mejor sin ella) y que sea correcta. Si cambias la variable, debes **redesplegar** en Vercel (Redeploy) para que surta efecto.
 - **"Tarda en conectar"**: Recuerda que el servidor gratuito de Render tarda en despertar. Ten paciencia en la primera carga.
+
+---
+
+## Actualizaciones Automáticas
+
+Una vez configurado, **no necesitas volver a tocar Render ni Vercel**.
+Cada vez que hagas cambios en tu código y ejecutes:
+
+```bash
+git add .
+git commit -m "Descripción de tus cambios"
+git push
+```
+
+Tanto Vercel como Render detectarán automáticamente el nuevo código en GitHub y actualizarán tu juego en unos minutos. ¡Magia! ✨
