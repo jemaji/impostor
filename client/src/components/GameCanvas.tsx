@@ -75,7 +75,7 @@ const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: n
 interface GameState {
     code: string;
     players: { id: string, name: string, color?: string, avatar?: string, disconnected?: boolean }[];
-    state: 'lobby' | 'playing' | 'voting' | 'game_over';
+    state: 'lobby' | 'playing' | 'voting' | 'revealing' | 'game_over';
     difficulty: 'normal' | 'hard';
     word: string;
     impostorWord: string;
@@ -229,8 +229,8 @@ export const GameCanvas: React.FC<Props> = ({
         );
     }
 
-    // Voting Screen with Flip Card
-    if (gameState.state === 'voting') {
+    // Voting or Revealing Screen with Flip Card
+    if (gameState.state === 'voting' || gameState.state === 'revealing') {
         return (
             <div
                 className="glass-panel animate-fade-in"
@@ -245,10 +245,19 @@ export const GameCanvas: React.FC<Props> = ({
                 onTouchEnd={handleTouchEnd}
             >
                 <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
-                {/* Voting Timer */}
-                {votingTimerEnabled && votingExpiresAt && (
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10 }}>
-                        <CircleTimer expiresAt={votingExpiresAt} totalTime={votingTotalTime} />
+                {/* Voting Timer - Moved to Header area or just below */}
+                {gameState.state === 'voting' && votingTimerEnabled && votingExpiresAt && (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '4px 12px', borderRadius: '20px' }}>
+                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tiempo restante:</span>
+                            <CircleTimer expiresAt={votingExpiresAt} totalTime={votingTotalTime} />
+                        </div>
+                    </div>
+                )}
+
+                {gameState.state === 'revealing' && (
+                    <div style={{ textAlign: 'center', padding: '10px', background: 'var(--accent-primary)', color: 'white', fontWeight: 'bold' }}>
+                        📊 REVELANDO VOTOS...
                     </div>
                 )}
                 {!showHistory ? (
@@ -283,8 +292,8 @@ export const GameCanvas: React.FC<Props> = ({
                             {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => (
                                 <button
                                     key={p.id}
-                                    onClick={() => !hasVoted && !isKicked && onVote(p.id)}
-                                    disabled={!!hasVoted || isKicked}
+                                    onClick={() => !hasVoted && !isKicked && gameState.state !== 'revealing' && onVote(p.id)}
+                                    disabled={!!hasVoted || isKicked || gameState.state === 'revealing'}
                                     style={{
                                         padding: '12px',
                                         background: gameState.votes[myId] === p.id ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
@@ -308,12 +317,33 @@ export const GameCanvas: React.FC<Props> = ({
                                         {p.avatar || '👤'}
                                     </div>
                                     <span style={{ flex: 1 }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+
+                                    {/* Reveal Votes */}
+                                    {gameState.state === 'revealing' && (
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            {Object.entries(gameState.votes)
+                                                .filter(([_, targetId]) => targetId === p.id)
+                                                .map(([voterId]) => {
+                                                    const voter = gameState.players.find(pl => pl.id === voterId);
+                                                    return (
+                                                        <div key={voterId} style={{
+                                                            width: '24px', height: '24px', borderRadius: '50%',
+                                                            background: voter?.color || 'gray',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '12px', border: '1px solid white'
+                                                        }} title={voter?.name}>
+                                                            {voter?.avatar || '👤'}
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    )}
                                 </button>
                             ))}
 
                             <button
                                 onClick={() => !hasVoted && !isKicked && onVote('skip')}
-                                disabled={!!hasVoted || isKicked}
+                                disabled={!!hasVoted || isKicked || gameState.state === 'revealing'}
                                 style={{
                                     marginTop: '10px',
                                     padding: '12px',
@@ -321,12 +351,34 @@ export const GameCanvas: React.FC<Props> = ({
                                     border: '2px solid var(--glass-border)',
                                     borderRadius: '12px',
                                     color: 'var(--text-secondary)',
-                                    opacity: hasVoted || isKicked ? 0.5 : 1,
+                                    opacity: hasVoted || isKicked || gameState.state === 'revealing' ? 0.5 : 1,
                                     cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                                 }}
                             >
-                                Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}
+                                <span>Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}</span>
+
+                                {/* Reveal Skips */}
+                                {gameState.state === 'revealing' && (
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {Object.entries(gameState.votes)
+                                            .filter(([_, targetId]) => targetId === 'skip')
+                                            .map(([voterId]) => {
+                                                const voter = gameState.players.find(pl => pl.id === voterId);
+                                                return (
+                                                    <div key={voterId} style={{
+                                                        width: '24px', height: '24px', borderRadius: '50%',
+                                                        background: voter?.color || 'gray',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: '12px', border: '1px solid white'
+                                                    }} title={voter?.name}>
+                                                        {voter?.avatar || '👤'}
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                )}
                             </button>
                         </div>
                         {hasVoted && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}

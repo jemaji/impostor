@@ -344,6 +344,17 @@ io.on('connection', (socket) => {
         if (room.votingTimer) clearTimeout(room.votingTimer);
         room.votingExpiresAt = null;
 
+        // Transition to revealing state instead of immediate tally
+        room.state = 'revealing';
+        io.to(code).emit('room_update', room);
+
+        // 5 seconds to reveal votes
+        setTimeout(() => {
+            finalizeVoting(room, code, io);
+        }, 5000);
+    };
+
+    const finalizeVoting = (room, code, io) => {
         // Tally votes
         const counts = {};
         for (const vid in room.votes) {
