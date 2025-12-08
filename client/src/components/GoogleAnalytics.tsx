@@ -28,11 +28,12 @@ export const GoogleAnalytics = () => {
         // Initialize GA
         window.dataLayer = window.dataLayer || [];
         function gtag(...args: any[]) {
-            // eslint-disable-next-line
-            // @ts-ignore
+            console.log('📊 [GA Event]', args); // Visual confirmation for User
             window.dataLayer.push(args);
         }
         window.gtag = gtag;
+
+        console.log('📊 [GA Init] Loading script for:', gaId);
         gtag('js', new Date());
         gtag('config', gaId);
 
