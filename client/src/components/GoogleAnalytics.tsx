@@ -27,14 +27,21 @@ export const GoogleAnalytics = () => {
 
         // Initialize GA
         window.dataLayer = window.dataLayer || [];
-        function gtag(...args: any[]) {
-            console.log('📊 [GA Event]', args); // Visual confirmation for User
-            window.dataLayer.push(args);
+        function gtag() {
+            // eslint-disable-next-line
+            // @ts-ignore
+            window.dataLayer.push(arguments);
+            // eslint-disable-next-line
+            // @ts-ignore
+            console.log('📊 [GA Event]', arguments);
         }
+        // @ts-ignore
         window.gtag = gtag;
 
         console.log('📊 [GA Init] Loading script for:', gaId);
+        // @ts-ignore
         gtag('js', new Date());
+        // @ts-ignore
         gtag('config', gaId, { 'debug_mode': true }); // Force Debug Mode for instant tracking
 
     }, [gaId]);
