@@ -53,6 +53,7 @@ function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [ejectionData, setEjectionData] = useState<EjectionData | null>(null);
   const [showWakeUpMessage, setShowWakeUpMessage] = useState(false);
+  const [shake, setShake] = useState(false);
   const [myName, setMyName] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('impostor_theme');
@@ -135,6 +136,14 @@ function App() {
                 avatar: kickedPlayer.avatar || '💀',
                 isImpostor
               });
+
+              // Self ejection feedback
+              if (kickedId === socket.id) {
+                setShake(true);
+                audioManager.play('failure');
+                audioManager.vibrate(1000);
+                setTimeout(() => setShake(false), 500);
+              }
             }
           }
         }
@@ -322,7 +331,9 @@ function App() {
 
   // Rendering logic
   return (
-    <>
+    <div className={`app-container ${shake ? 'shake' : ''}`} style={{
+      width: '100%', maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%'
+    }}>
       <GoogleAnalytics />
 
       {showWakeUpMessage && (
@@ -410,7 +421,7 @@ function App() {
           )}
         </>
       )}
-    </>
+    </div>
   );
 }
 
