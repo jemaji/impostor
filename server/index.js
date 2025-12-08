@@ -3,6 +3,8 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { getRandomWord } from './dictionary.js';
+import { PUNISHMENTS } from './punishments.js';
+import { SHAME_PHRASES } from './shame_phrases.js';
 
 const app = express();
 app.use(cors());
@@ -19,6 +21,74 @@ const io = new Server(httpServer, {
 const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word: string, impostorIndex: number, turnIndex: number, inputs: [] } }
 
 const generateCode = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+
+const startTurnTimer = (room, code, io) => {
+    if (room.turnTimer) clearTimeout(room.turnTimer);
+
+    if (room.state !== 'playing' || !room.settings?.timer) {
+        room.turnExpiresAt = null;
+        return;
+    }
+
+    const duration = (room.settings.timeLimit || 15) * 1000;
+    room.turnExpiresAt = Date.now() + duration;
+
+    // Emit update so clients see the timer
+    io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+
+    room.turnTimer = setTimeout(() => {
+        handleTurnTimeout(room, code, io);
+    }, duration);
+};
+
+const handleTurnTimeout = (room, code, io) => {
+    if (room.state !== 'playing') return;
+
+    const currentPlayer = room.players[room.turnIndex];
+    console.log(`Time out for ${currentPlayer.name}`);
+
+    // Apply punishment logic
+    if (room.settings?.punishment) {
+        const punishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
+        const punishmentTerm = `🤡 CASTIGO: ${punishment}`;
+        processSubmission(room, code, io, currentPlayer.name, punishmentTerm, true);
+    } else {
+        // Shame phrase
+        const phrase = SHAME_PHRASES[Math.floor(Math.random() * SHAME_PHRASES.length)];
+        const shameTerm = `😳 "${phrase}"`;
+        processSubmission(room, code, io, currentPlayer.name, shameTerm, true);
+    }
+};
+
+const processSubmission = (room, code, io, playerName, term, isAuto = false) => {
+    room.inputs.push({ playerName, term });
+
+    if (room.turnTimer) clearTimeout(room.turnTimer);
+    room.turnExpiresAt = null;
+
+    // Find next active player
+    let nextIndex = (room.turnIndex + 1) % room.players.length;
+    let loops = 0;
+    while (room.kickedIds.includes(room.players[nextIndex].id) && loops < room.players.length) {
+        nextIndex = (nextIndex + 1) % room.players.length;
+        loops++;
+    }
+    room.turnIndex = nextIndex;
+
+    const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
+    room.inputsInCurrentRound++;
+
+    if (room.inputsInCurrentRound >= activePlayers.length) {
+        room.state = 'voting';
+        room.votes = {};
+        room.inputsInCurrentRound = 0;
+        io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+    } else {
+        // Start timer for next player
+        io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+        startTurnTimer(room, code, io);
+    }
+};
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -47,7 +117,13 @@ io.on('connection', (socket) => {
             kickedIds: [],
             votes: {},
             winner: null,
-            inputsInCurrentRound: 0
+            inputsInCurrentRound: 0,
+            settings: {
+                timer: false,
+                timeLimit: 10,
+                punishment: false,
+                customPunishment: ''
+            }
         };
         socket.join(code);
         callback({ code });
@@ -143,6 +219,14 @@ io.on('connection', (socket) => {
         io.to(data.code).emit('room_update', room);
     });
 
+    socket.on('update_settings', (data) => {
+        const room = rooms[data.code];
+        if (!room || room.state !== 'lobby') return;
+
+        room.settings = { ...room.settings, ...data.settings };
+        io.to(data.code).emit('room_update', room);
+    });
+
     socket.on('start_game', (data) => {
         const room = rooms[data.code];
         if (!room) return;
@@ -191,37 +275,13 @@ io.on('connection', (socket) => {
         room.inputsInCurrentRound = 0;
 
         io.to(data.code).emit('game_started', room);
+        startTurnTimer(room, data.code, io);
     });
 
     socket.on('submit_term', (data) => {
         const room = rooms[data.code];
         if (!room) return;
-
-        room.inputs.push({ playerName: data.playerName, term: data.term });
-
-        // Find next active player
-        let nextIndex = (room.turnIndex + 1) % room.players.length;
-        let loops = 0;
-        while (room.kickedIds.includes(room.players[nextIndex].id) && loops < room.players.length) {
-            nextIndex = (nextIndex + 1) % room.players.length;
-            loops++;
-        }
-        room.turnIndex = nextIndex;
-
-        // Check if round finished (everyone active has submitted)
-        const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
-
-        room.inputsInCurrentRound++;
-
-        if (room.inputsInCurrentRound >= activePlayers.length) {
-            // Immediately go to voting
-            room.state = 'voting';
-            room.votes = {};
-            room.inputsInCurrentRound = 0;
-            io.to(data.code).emit('room_update', room);
-        } else {
-            io.to(data.code).emit('room_update', room);
-        }
+        processSubmission(room, data.code, io, data.playerName, data.term);
     });
 
     socket.on('vote', (data) => {
@@ -284,9 +344,11 @@ io.on('connection', (socket) => {
                     room.turnIndex = (room.turnIndex + 1) % room.players.length;
                     loops++;
                 }
+                io.to(data.code).emit('room_update', room);
+                startTurnTimer(room, data.code, io);
+            } else {
+                io.to(data.code).emit('room_update', room);
             }
-
-            io.to(data.code).emit('room_update', room);
         } else {
             io.to(data.code).emit('room_update', room);
         }
@@ -302,6 +364,8 @@ io.on('connection', (socket) => {
         room.winner = null;
         room.impostorIds = [];
         room.inputsInCurrentRound = 0;
+        if (room.turnTimer) clearTimeout(room.turnTimer);
+        room.turnExpiresAt = null;
         io.to(data.code).emit('room_update', room);
     });
 

@@ -331,6 +331,10 @@ export const DICTIONARY = {
     ]
 };
 
+
+
+export const CATEGORIES = Object.keys(DICTIONARY);
+
 export const getRandomWord = (category = null) => {
     let pool = [];
 

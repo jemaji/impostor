@@ -21,6 +21,15 @@ interface Props {
     onDifficultyChange: (difficulty: 'normal' | 'hard') => void;
     onCategoryChange: (category: string | null) => void;
     onToggleTheme: () => void;
+    settings?: Settings;
+    onUpdateSettings: (settings: Partial<Settings>) => void;
+}
+
+export interface Settings {
+    timer: boolean;
+    timeLimit: number;
+    punishment: boolean;
+    customPunishment: string;
 }
 
 const CATEGORIES = [
@@ -29,7 +38,7 @@ const CATEGORIES = [
     "Música", "Transporte", "Naturaleza", "Videojuegos/Geek", "Adultos (+18)"
 ];
 
-export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, category, theme, onStart, onLeave, onDifficultyChange, onCategoryChange, onToggleTheme }) => {
+export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, category, theme, onStart, onLeave, onDifficultyChange, onCategoryChange, onToggleTheme, settings, onUpdateSettings }) => {
     const [touchStartX, setTouchStartX] = React.useState(0);
 
     const copyCode = () => {
@@ -274,6 +283,60 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                         </div>
                     </div>
                 )}
+
+                {/* Timer Settings */}
+                <div style={{
+                    marginTop: '10px',
+                    paddingTop: '10px',
+                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
+                }}>
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', cursor: isHost ? 'pointer' : 'default' }}>
+                        <span style={{ color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>⏱️ Temporizador</span>
+                        <input
+                            type="checkbox"
+                            checked={settings?.timer || false}
+                            onChange={(e) => isHost && onUpdateSettings({ timer: e.target.checked })}
+                            disabled={!isHost}
+                            style={{ transform: 'scale(1.2)' }}
+                        />
+                    </label>
+
+                    {settings?.timer && (
+                        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tiempo por turno:</span>
+                                {isHost ? (
+                                    <input
+                                        type="number"
+                                        min="5"
+                                        max="60"
+                                        value={settings.timeLimit}
+                                        onChange={(e) => onUpdateSettings({ timeLimit: Math.max(5, Math.min(60, Number(e.target.value))) })}
+                                        style={{
+                                            width: '60px', padding: '4px', borderRadius: '4px',
+                                            border: '1px solid var(--text-secondary)',
+                                            background: 'transparent',
+                                            color: theme === 'light' ? 'black' : 'white',
+                                            textAlign: 'center'
+                                        }}
+                                    />
+                                ) : (
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.timeLimit}s</span>
+                                )}
+                            </div>
+
+                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: isHost ? 'pointer' : 'default' }}>
+                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>😈 Modo Castigo</span>
+                                <input
+                                    type="checkbox"
+                                    checked={settings.punishment || false}
+                                    onChange={(e) => isHost && onUpdateSettings({ punishment: e.target.checked })}
+                                    disabled={!isHost}
+                                />
+                            </label>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Action Buttons */}

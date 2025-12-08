@@ -33,6 +33,13 @@ interface GameState {
   winner: 'civilians' | 'impostors' | null;
   paused?: boolean;
   pauseReason?: string;
+  settings?: {
+    timer: boolean;
+    timeLimit: number;
+    punishment: boolean;
+    customPunishment: string;
+  };
+  turnExpiresAt?: number | null;
 }
 
 interface EjectionData {
@@ -281,6 +288,12 @@ function App() {
     }
   }
 
+  const handleUpdateSettings = (settings: any) => {
+    if (gameState) {
+      socket.emit('update_settings', { code: gameState.code, settings });
+    }
+  }
+
   // Rendering logic
   return (
     <>
@@ -313,6 +326,8 @@ function App() {
               onDifficultyChange={handleDifficultyChange}
               onCategoryChange={handleCategoryChange}
               onToggleTheme={toggleTheme}
+              settings={gameState.settings}
+              onUpdateSettings={handleUpdateSettings}
             />
           ) : (
             <GameCanvas
@@ -329,6 +344,9 @@ function App() {
               onRestart={handleRestart}
               onCloseRoom={handleLeave}
               onToggleTheme={toggleTheme}
+              turnExpiresAt={gameState.turnExpiresAt}
+              totalTime={gameState.settings?.timeLimit || 15}
+              timerEnabled={gameState.settings?.timer || false}
             />
           )}
         </>

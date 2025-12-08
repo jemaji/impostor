@@ -1,5 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
+
+const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: number }) => {
+    const [timeLeft, setTimeLeft] = useState(totalTime);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+            setTimeLeft(remaining);
+            if (remaining <= 0) clearInterval(interval);
+        }, 100);
+        return () => clearInterval(interval);
+    }, [expiresAt]);
+
+    const percentage = Math.max(0, (timeLeft / totalTime) * 100);
+    const strokeDasharray = `${percentage}, 100`;
+
+    // Color logic: Green > 50%, Yellow > 20%, Red <= 20%
+    const color = percentage > 50 ? '#4ade80' : percentage > 20 ? '#facc15' : '#ef4444';
+
+    return (
+        <div className="animate-pulse-slow" style={{ position: 'relative', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeWidth="3"
+                />
+                <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="3"
+                    strokeDasharray={strokeDasharray}
+                    style={{ transition: 'stroke-dasharray 0.5s linear, stroke 0.5s ease' }}
+                />
+            </svg>
+            <span style={{ position: 'absolute', fontWeight: 'bold', color: 'white', fontSize: '1.1rem' }}>{timeLeft}</span>
+        </div>
+    );
+};
 
 // Input interface removed as it was unused
 
@@ -35,6 +77,9 @@ interface Props {
     onRestart: () => void;
     onCloseRoom: () => void;
     onToggleTheme: () => void;
+    turnExpiresAt?: number | null;
+    totalTime: number;
+    timerEnabled: boolean;
 }
 
 export const GameCanvas: React.FC<Props> = ({
@@ -50,7 +95,10 @@ export const GameCanvas: React.FC<Props> = ({
     onVote,
     onRestart,
     onCloseRoom,
-    onToggleTheme
+    onToggleTheme,
+    turnExpiresAt,
+    totalTime,
+    timerEnabled
 }) => {
     const [term, setTerm] = useState('');
     const [holdingRole, setHoldingRole] = useState(false);
@@ -367,11 +415,16 @@ export const GameCanvas: React.FC<Props> = ({
             )}
 
             {/* Turn Indicator */}
-            <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
-                    {isMyTurn ? 'TI' : activePlayerName}
+            <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
+                        {isMyTurn ? 'TI' : activePlayerName}
+                    </div>
                 </div>
+                {timerEnabled && turnExpiresAt && (
+                    <CircleTimer expiresAt={turnExpiresAt} totalTime={totalTime} />
+                )}
             </div>
 
             {/* Feed */}
