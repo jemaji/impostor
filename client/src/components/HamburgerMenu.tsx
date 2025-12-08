@@ -20,7 +20,7 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                     /* top: '20px', */
                     /* right: '20px', */
                     background: 'var(--glass-bg)',
-                    border: '2px solid var(--glass-border)',
+                    border: '2px solid rgba(255, 255, 255, 0.5)', // More visible border
                     borderRadius: '8px',
                     width: '44px',
                     height: '44px',
