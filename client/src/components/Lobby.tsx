@@ -14,14 +14,22 @@ interface Props {
     players: Player[];
     isHost: boolean;
     difficulty: 'normal' | 'hard';
+    category: string | null;
     theme: 'dark' | 'light';
     onStart: () => void;
     onLeave: () => void;
     onDifficultyChange: (difficulty: 'normal' | 'hard') => void;
+    onCategoryChange: (category: string | null) => void;
     onToggleTheme: () => void;
 }
 
-export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, theme, onStart, onLeave, onDifficultyChange, onToggleTheme }) => {
+const CATEGORIES = [
+    "Animales", "Comida", "Lugares", "Casa", "Cine/TV",
+    "Profesiones", "Deportes", "Cuerpo", "Ropa", "Tecnología",
+    "Música", "Transporte", "Naturaleza", "Videojuegos/Geek", "Adultos (+18)"
+];
+
+export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, category, theme, onStart, onLeave, onDifficultyChange, onCategoryChange, onToggleTheme }) => {
     const [touchStartX, setTouchStartX] = React.useState(0);
 
     const copyCode = () => {
@@ -36,134 +44,263 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
 
-        if (Math.abs(diff) > 50) { // Minimum swipe distance
-            if (diff > 0) {
-                // Swipe left - go to hard
-                onDifficultyChange('hard');
-            } else {
-                // Swipe right - go to normal
-                onDifficultyChange('normal');
-            }
+        if (Math.abs(diff) > 50 && isHost) {
+            if (diff > 0) onDifficultyChange('hard');
+            else onDifficultyChange('normal');
         }
     };
 
     return (
         <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
             <Header title="SALA" theme={theme} onToggleTheme={onToggleTheme} isHost={isHost} onCloseRoom={isHost ? onLeave : undefined} />
+
+            {/* Room Code */}
             <div style={{ textAlign: 'center' }}>
                 <div
                     onClick={copyCode}
                     style={{
                         fontSize: '3.5rem',
-                        fontWeight: 800,
-                        letterSpacing: '0.2em',
+                        fontWeight: 900,
+                        letterSpacing: '4px',
                         cursor: 'pointer',
-                        lineHeight: 1
-                    }}>
+                        textShadow: '0 0 20px rgba(139, 92, 246, 0.5)',
+                        transition: 'transform 0.2s',
+                        fontFamily: 'monospace'
+                    }}
+                    id="room-code"
+                >
                     {roomCode}
                 </div>
-                <p style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '8px' }}>Toca para copiar</p>
+                <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '-5px' }}>Toca para copiar código</p>
             </div>
 
+            {/* Players List */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
-                <h3 style={{ paddingBottom: '12px', borderBottom: '1px solid var(--glass-border)', marginBottom: '12px' }}>
-                    Jugadores ({players.length})
-                </h3>
+                <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Jugadores ({players.length})</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {players.map((p) => (
-                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+                    {players.map(p => (
+                        <div key={p.id} className="animate-fade-in" style={{
+                            padding: '12px',
+                            background: 'rgba(255,255,255,0.05)',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            border: p.isHost ? '1px solid var(--accent-primary)' : '1px solid transparent'
+                        }}>
                             <div style={{
-                                width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '50%',
-                                background: p.color || 'linear-gradient(135deg, #6d28d9, #4c1d95)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '18px', fontWeight: 'bold', flexShrink: 0
+                                fontSize: '1.5rem',
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '50%',
+                                background: p.color || 'var(--accent-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                border: '2px solid rgba(255,255,255,0.2)'
                             }}>
-                                {p.avatar || p.name.charAt(0).toUpperCase()}
+                                {p.avatar || '👤'}
                             </div>
-                            <span>{p.name} {p.isHost && '👑'}</span>
+                            <div style={{ flex: 1, textAlign: 'left', fontWeight: 'bold' }}>
+                                {p.name} {p.isHost && '👑'}
+                            </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            {isHost && (
-                <div style={{ marginBottom: '10px' }}>
-                    <h3 style={{ fontSize: '0.9rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>Dificultad</h3>
+            {/* Settings Area */}
+            <div style={{
+                background: theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.2)',
+                padding: '16px',
+                borderRadius: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+            }}>
+
+                {/* Difficulty Slider */}
+                <div>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '8px', textAlign: 'left' }}>Dificultad {isHost ? '(Desliza)' : ''}</p>
                     <div
-                        style={{ display: 'flex', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '16px' }}
+                        style={{
+                            display: 'flex',
+                            background: theme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.3)',
+                            borderRadius: '12px',
+                            padding: '4px',
+                            position: 'relative'
+                        }}
                         onTouchStart={handleDifficultyTouchStart}
                         onTouchEnd={handleDifficultyTouchEnd}
                     >
                         <button
-                            onClick={() => onDifficultyChange('normal')}
+                            onClick={() => isHost && onDifficultyChange('normal')}
                             style={{
-                                flex: 1,
-                                padding: '10px',
-                                borderRadius: '12px',
-                                background: difficulty === 'normal' ? 'var(--accent-primary)' : 'transparent',
-                                color: difficulty === 'normal' ? '#fff' : 'var(--text-secondary)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontWeight: difficulty === 'normal' ? 'bold' : 'normal'
+                                flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
+                                background: difficulty === 'normal' ? 'var(--success)' : 'transparent',
+                                color: difficulty === 'normal' ? 'white' : 'var(--text-secondary)',
+                                fontWeight: difficulty === 'normal' ? 'bold' : 'normal',
+                                transition: 'all 0.3s ease',
+                                opacity: isHost ? 1 : (difficulty === 'normal' ? 1 : 0.5)
                             }}
                         >
-                            😊 Normal
+                            Normal
                         </button>
                         <button
-                            onClick={() => onDifficultyChange('hard')}
+                            onClick={() => isHost && onDifficultyChange('hard')}
                             style={{
-                                flex: 1,
-                                padding: '10px',
-                                borderRadius: '12px',
-                                background: difficulty === 'hard' ? 'var(--accent-primary)' : 'transparent',
-                                color: difficulty === 'hard' ? '#fff' : 'var(--text-secondary)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontWeight: difficulty === 'hard' ? 'bold' : 'normal'
+                                flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
+                                background: difficulty === 'hard' ? 'var(--error)' : 'transparent',
+                                color: difficulty === 'hard' ? 'white' : 'var(--text-secondary)',
+                                fontWeight: difficulty === 'hard' ? 'bold' : 'normal',
+                                transition: 'all 0.3s ease',
+                                opacity: isHost ? 1 : (difficulty === 'hard' ? 1 : 0.5)
                             }}
                         >
-                            🔥 Difícil
+                            Difícil
                         </button>
                     </div>
-                    <p style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '6px', textAlign: 'center' }}>
-                        {difficulty === 'hard' ? 'Palabras relacionadas - Ni el impostor sabe que es impostor' : 'Modo clásico - Impostores sin palabra'}
-                    </p>
                 </div>
-            )}
-            {!isHost && difficulty && (
-                <div style={{ textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                    <p style={{ fontSize: '0.85rem', margin: 0 }}>
-                        Dificultad: <strong>{difficulty === 'hard' ? '🔥 Difícil' : '😊 Normal'}</strong>
-                    </p>
+
+                {/* Category Selector - Only visible in Hard Mode */}
+                {difficulty === 'hard' && (
+                    <div className="animate-fade-in">
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '8px', textAlign: 'left' }}>Categoría {isHost ? '(Desliza)' : ''}</p>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {/* Left Arrow */}
+                            <button
+                                onClick={(e) => {
+                                    const container = e.currentTarget.nextElementSibling as HTMLDivElement;
+                                    container.scrollBy({ left: -150, behavior: 'smooth' });
+                                }}
+                                style={{
+                                    background: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: theme === 'light' ? 'var(--text-primary)' : 'white',
+                                    flexShrink: 0
+                                }}
+                            >
+                                &#9664;
+                            </button>
+
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    gap: '8px',
+                                    overflowX: 'auto',
+                                    paddingBottom: '8px',
+                                    whiteSpace: 'nowrap',
+                                    WebkitOverflowScrolling: 'touch',
+                                    scrollbarWidth: 'none',
+                                    msOverflowStyle: 'none',
+                                    flex: 1,
+                                    scrollBehavior: 'smooth'
+                                }}
+                                onWheel={(e) => {
+                                    e.currentTarget.scrollLeft += e.deltaY;
+                                }}
+                            >
+                                <style>{`div::-webkit-scrollbar { display: none; }`}</style>
+
+                                <button
+                                    onClick={() => isHost && onCategoryChange(null)}
+                                    style={{
+                                        padding: '8px 16px', borderRadius: '20px', border: 'none',
+                                        background: category === null ? 'var(--accent-primary)' : (theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'),
+                                        color: category === null ? 'white' : (theme === 'light' ? 'var(--text-primary)' : 'white'),
+                                        fontWeight: category === null ? 'bold' : 'normal',
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0,
+                                        opacity: isHost ? 1 : (category === null ? 1 : 0.5),
+                                        cursor: isHost ? 'pointer' : 'default',
+                                        transition: 'transform 0.1s active'
+                                    }}
+                                >
+                                    🎲 Mix
+                                </button>
+                                {CATEGORIES.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => isHost && onCategoryChange(cat)}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '20px', border: 'none',
+                                            background: category === cat ? 'var(--accent-primary)' : (theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'),
+                                            color: category === cat ? 'white' : (theme === 'light' ? 'var(--text-primary)' : 'white'),
+                                            fontWeight: category === cat ? 'bold' : 'normal',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0,
+                                            opacity: isHost ? 1 : (category === cat ? 1 : 0.5),
+                                            cursor: isHost ? 'pointer' : 'default',
+                                            transition: 'transform 0.1s active'
+                                        }}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Right Arrow */}
+                            <button
+                                onClick={(e) => {
+                                    const container = e.currentTarget.previousElementSibling as HTMLDivElement;
+                                    container.scrollBy({ left: 150, behavior: 'smooth' });
+                                }}
+                                style={{
+                                    background: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: theme === 'light' ? 'var(--text-primary)' : 'white',
+                                    flexShrink: 0
+                                }}
+                            >
+                                &#9654;
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Action Buttons */}
+            {isHost ? (
+                <button
+                    className="btn-primary"
+                    onClick={onStart}
+                    disabled={players.length < 3}
+                    style={{ opacity: players.length < 3 ? 0.5 : 1 }}
+                >
+                    {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Comenzar Partida'}
+                </button>
+            ) : (
+                <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                    Esperando al anfitrión...
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {isHost && (
-                    <button
-                        className="btn-primary"
-                        onClick={onStart}
-                        disabled={players.length < 3}
-                        style={{ opacity: players.length < 3 ? 0.5 : 1 }}
-                    >
-                        {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Empezar Partida'}
-                    </button>
-                )}
-                {!isHost && (
-                    <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                        Esperando a que el anfitrión inicie...
-                    </p>
-                )}
-
+            {!isHost && (
                 <button
                     className="btn-secondary"
                     onClick={onLeave}
                     style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid var(--error)', color: 'var(--error)' }}
                 >
-                    {isHost ? '🚪 Cerrar Sala (Todos saldrán)' : '🚪 Salir de la Sala'}
+                    🚪 Salir de la Sala
                 </button>
-            </div>
+            )}
         </div>
-
     );
 };

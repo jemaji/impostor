@@ -186,6 +186,16 @@ function App() {
   const handleDifficultyChange = (difficulty: 'normal' | 'hard') => {
     if (gameState) {
       socket.emit('set_difficulty', { code: gameState.code, difficulty });
+      // If switching to normal, reset category to Mix (null) as requested
+      if (difficulty === 'normal') {
+        socket.emit('set_category', { code: gameState.code, category: null });
+      }
+    }
+  }
+
+  const handleCategoryChange = (category: string | null) => {
+    if (gameState) {
+      socket.emit('set_category', { code: gameState.code, category });
     }
   }
 
@@ -201,10 +211,12 @@ function App() {
         players={gameState.players}
         isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
         difficulty={gameState.difficulty || 'normal'}
+        category={gameState.category || null}
         theme={theme}
         onStart={handleStart}
         onLeave={handleLeave}
         onDifficultyChange={handleDifficultyChange}
+        onCategoryChange={handleCategoryChange}
         onToggleTheme={toggleTheme}
       />
     );

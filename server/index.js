@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { dictionary, relatedWords } from './dictionary.js';
+import { getRandomWord } from './dictionary.js';
 
 const app = express();
 app.use(cors());
@@ -38,6 +38,7 @@ io.on('connection', (socket) => {
             }],
             state: 'lobby',
             difficulty: 'normal', // Default difficulty
+            category: null, // null = Mix parameters
             word: '',
             impostorWord: '', // For hard mode
             impostorIds: [],
@@ -134,6 +135,14 @@ io.on('connection', (socket) => {
         io.to(data.code).emit('room_update', room);
     });
 
+    socket.on('set_category', (data) => {
+        const room = rooms[data.code];
+        if (!room || room.state !== 'lobby') return;
+
+        room.category = data.category;
+        io.to(data.code).emit('room_update', room);
+    });
+
     socket.on('start_game', (data) => {
         const room = rooms[data.code];
         if (!room) return;
@@ -147,15 +156,21 @@ io.on('connection', (socket) => {
 
         room.state = 'playing';
 
-        // Assign words based on difficulty
+        // Assign words based on category and difficulty
+        const pair = getRandomWord(room.category);
+
         if (room.difficulty === 'hard') {
             // Hard mode: use related words
-            const wordPair = relatedWords[Math.floor(Math.random() * relatedWords.length)];
-            room.word = wordPair[0]; // Civilians get first word
-            room.impostorWord = wordPair[1]; // "Impostors" get related word
+            room.word = pair.word;
+            room.impostorWord = pair.related;
+
+            // Randomly swap so word/related aren't always in same role order (optional but good)
+            if (Math.random() > 0.5) {
+                [room.word, room.impostorWord] = [room.impostorWord, room.word];
+            }
         } else {
-            // Normal mode: only civilians get word
-            room.word = dictionary[Math.floor(Math.random() * dictionary.length)];
+            // Normal mode: only civilians get word (pick random one from pair for variety)
+            room.word = Math.random() > 0.5 ? pair.word : pair.related;
             room.impostorWord = '';
         }
 
