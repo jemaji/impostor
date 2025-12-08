@@ -9,7 +9,6 @@ declare global {
 
 export const GoogleAnalytics = () => {
     const gaId = import.meta.env.VITE_GA_ID;
-    console.log('📊 [Analytics Debug] GA ID:', gaId); // Debug line
 
     useEffect(() => {
         if (!gaId) {

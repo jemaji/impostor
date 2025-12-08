@@ -130,6 +130,14 @@ function App() {
             }
           }
         }
+        if (currentRoom && currentRoom.state !== 'game_over' && room.state === 'game_over') {
+          if (window.gtag) {
+            window.gtag('event', 'game_end', {
+              winner: room.winner,
+              difficulty: room.difficulty
+            });
+          }
+        }
         return room;
       });
 
@@ -147,6 +155,12 @@ function App() {
 
     socket.on('game_started', (room: GameState) => {
       setGameState(room);
+      if (window.gtag) {
+        window.gtag('event', 'game_start', {
+          difficulty: room.difficulty,
+          category: room.category || 'mixed'
+        });
+      }
     });
 
     socket.on('room_closed', () => {
