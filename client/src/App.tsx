@@ -3,6 +3,8 @@ import { socket } from './socket';
 import { CreateJoin } from './components/CreateJoin';
 import { Lobby } from './components/Lobby';
 import { GameCanvas } from './components/GameCanvas';
+import { EjectionAnimation } from './components/EjectionAnimation';
+import { audioManager } from './services/audioManager';
 import './styles/index.css';
 
 interface Player {
@@ -19,6 +21,7 @@ interface GameState {
   players: Player[];
   state: 'lobby' | 'playing' | 'voting' | 'game_over';
   difficulty: 'normal' | 'hard';
+  category?: string | null; // Added category
   word: string;
   impostorWord: string;
   impostorIds: string[];
@@ -31,8 +34,16 @@ interface GameState {
   pauseReason?: string;
 }
 
+interface EjectionData {
+  name: string;
+  isImpostor: boolean;
+  color: string;
+  avatar: string;
+}
+
 function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [ejectionData, setEjectionData] = useState<EjectionData | null>(null);
   const [myName, setMyName] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('impostor_theme');
@@ -62,9 +73,65 @@ function App() {
     return newId;
   });
 
+  // Audio Initialization
+  useEffect(() => {
+    const handleInit = () => audioManager.init();
+    window.addEventListener('click', handleInit, { once: true });
+    window.addEventListener('touchstart', handleInit, { once: true });
+    return () => {
+      window.removeEventListener('click', handleInit);
+      window.removeEventListener('touchstart', handleInit);
+    };
+  }, []);
+
+  // Audio Effects System
+  useEffect(() => {
+    if (!gameState) return;
+
+    // Detect My Turn
+    const isMyTurn = gameState.turnIndex !== -1 &&
+      gameState.players[gameState.turnIndex]?.id === socket.id &&
+      !gameState.kickedIds.includes(socket.id);
+
+    if (isMyTurn && gameState.state === 'playing') {
+      audioManager.play('turn');
+      audioManager.vibrate([200, 100, 200]);
+    }
+
+    // Detect Voting Phase Start
+    if (gameState.state === 'voting') {
+      // Simple distinct voting sound (only once per state change ideally)
+      // Here it might re-trigger if gameState changes internally, but 'voting' state usually is static until votes come in.
+      // To be safe, we rely on the fact that this effect runs on dependency change.
+      audioManager.play('vote');
+      audioManager.vibrate(500);
+    }
+  }, [gameState?.turnIndex, gameState?.state]);
+
   useEffect(() => {
     socket.on('room_update', (room: GameState) => {
-      setGameState(room);
+      setGameState(currentRoom => {
+        // Detect if someone was newly kicked to trigger animation
+        if (currentRoom) {
+          const newKicks = room.kickedIds.filter(id => !currentRoom.kickedIds.includes(id));
+          if (newKicks.length > 0) {
+            const kickedId = newKicks[0];
+            const kickedPlayer = room.players.find(p => p.id === kickedId);
+            const isImpostor = room.impostorIds.includes(kickedId);
+
+            if (kickedPlayer) {
+              setEjectionData({
+                name: kickedPlayer.name,
+                color: kickedPlayer.color || '#fff',
+                avatar: kickedPlayer.avatar || '💀',
+                isImpostor
+              });
+            }
+          }
+        }
+        return room;
+      });
+
       // Save code for reconnection
       if (room.code) {
         localStorage.setItem('impostor_room', room.code);
@@ -204,48 +271,50 @@ function App() {
     return <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />;
   }
 
-  if (gameState.state === 'lobby') {
-    return (
-      <Lobby
-        roomCode={gameState.code}
-        players={gameState.players}
-        isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
-        difficulty={gameState.difficulty || 'normal'}
-        category={gameState.category || null}
-        theme={theme}
-        onStart={handleStart}
-        onLeave={handleLeave}
-        onDifficultyChange={handleDifficultyChange}
-        onCategoryChange={handleCategoryChange}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
-
-  // Playing / Voting / GameOver state
-  const myPlayerIndex = gameState.players.findIndex(p => p.id === socket.id);
-  const myId = socket.id || '';
-  const myRole = gameState.impostorIds.includes(myId) ? 'impostor' : 'civilian';
-  const isMyTurn = gameState.turnIndex === myPlayerIndex && !gameState.kickedIds.includes(myId);
-  const activePlayer = gameState.players[gameState.turnIndex]?.name || '';
-  const isKicked = gameState.kickedIds.includes(myId);
-
   return (
-    <GameCanvas
-      gameState={gameState}
-      myId={socket.id || ''}
-      myRole={myRole}
-      isMyTurn={isMyTurn}
-      activePlayerName={activePlayer || ''}
-      isKicked={isKicked}
-      isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
-      theme={theme}
-      onSubmit={handleSubmit}
-      onVote={handleVote}
-      onRestart={handleRestart}
-      onCloseRoom={handleLeave}
-      onToggleTheme={toggleTheme}
-    />
+    <>
+      {ejectionData && (
+        <EjectionAnimation
+          name={ejectionData.name}
+          isImpostor={ejectionData.isImpostor}
+          color={ejectionData.color}
+          avatar={ejectionData.avatar}
+          onComplete={() => setEjectionData(null)}
+        />
+      )}
+
+      {gameState.state === 'lobby' ? (
+        <Lobby
+          roomCode={gameState.code}
+          players={gameState.players}
+          isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
+          difficulty={gameState.difficulty || 'normal'}
+          category={gameState.category || null}
+          theme={theme}
+          onStart={handleStart}
+          onLeave={handleLeave}
+          onDifficultyChange={handleDifficultyChange}
+          onCategoryChange={handleCategoryChange}
+          onToggleTheme={toggleTheme}
+        />
+      ) : (
+        <GameCanvas
+          gameState={gameState}
+          myId={socket.id || ''}
+          myRole={gameState.impostorIds.includes(socket.id || '') ? 'impostor' : 'civilian'}
+          isMyTurn={gameState.turnIndex !== -1 && gameState.players[gameState.turnIndex]?.id === socket.id && !gameState.kickedIds.includes(socket.id || '')}
+          activePlayerName={gameState.players[gameState.turnIndex]?.name || ''}
+          isKicked={gameState.kickedIds.includes(socket.id || '')}
+          isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
+          theme={theme}
+          onSubmit={handleSubmit}
+          onVote={handleVote}
+          onRestart={handleRestart}
+          onCloseRoom={handleLeave}
+          onToggleTheme={toggleTheme}
+        />
+      )}
+    </>
   );
 }
 

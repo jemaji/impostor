@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HamburgerMenu } from './HamburgerMenu';
+import { audioManager } from '../services/audioManager';
 
 interface HeaderProps {
     title: string;
@@ -10,6 +11,15 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, theme, isHost, onToggleTheme, onCloseRoom }) => {
+    const [muted, setMuted] = useState(audioManager.getMuteState());
+
+    const toggleMute = () => {
+        const newState = audioManager.toggleMute();
+        setMuted(newState);
+        audioManager.init(); // Ensure init
+        if (!newState) audioManager.play('click');
+    };
+
     return (
         <div style={{
             display: 'flex',
@@ -33,9 +43,29 @@ export const Header: React.FC<HeaderProps> = ({ title, theme, isHost, onToggleTh
             }}>
                 {title}
             </h1>
-            {onToggleTheme && theme && (
-                <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
-            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                    onClick={toggleMute}
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        fontSize: '1.2rem',
+                        cursor: 'pointer',
+                        padding: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0.8
+                    }}
+                >
+                    {muted ? '🔇' : '🔊'}
+                </button>
+
+                {onToggleTheme && theme && (
+                    <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+                )}
+            </div>
         </div>
     );
 };
