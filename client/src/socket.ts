@@ -1,5 +1,7 @@
 import { io } from "socket.io-client";
 
-// Connect to the backend server
-// Using relative path to allow proxying by Vite (works with ngrok)
-export const socket = io();
+const URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+
+export const socket = io(URL, {
+  autoConnect: true,
+});
