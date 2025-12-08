@@ -35,7 +35,49 @@ interface Props {
     onRestart: () => void;
     onCloseRoom: () => void;
     onToggleTheme: () => void;
+    turnExpiresAt?: number | null;
+    totalTime: number;
+    timerEnabled: boolean;
 }
+
+const CircleTimer = ({ expiresAt, totalDuration }: { expiresAt: number, totalDuration: number }) => {
+    const [timeLeftPercent, setTimeLeftPercent] = React.useState(100);
+    const [secondsLeft, setSecondsLeft] = React.useState(totalDuration);
+
+    React.useEffect(() => {
+        let frameId: number;
+        const update = () => {
+            const now = Date.now();
+            const remain = Math.max(0, expiresAt - now);
+            const totalMs = totalDuration * 1000;
+            const p = Math.min(100, Math.max(0, (remain / totalMs) * 100));
+            setTimeLeftPercent(p);
+            setSecondsLeft(Math.ceil(remain / 1000));
+
+            if (remain > 0) {
+                frameId = requestAnimationFrame(update);
+            }
+        };
+        update();
+        return () => cancelAnimationFrame(frameId);
+    }, [expiresAt, totalDuration]);
+
+    const color = timeLeftPercent > 50 ? 'var(--success)' : timeLeftPercent > 20 ? '#eab308' : 'var(--error)';
+
+    return (
+        <div style={{ position: 'relative', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="50" height="50" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="25" cy="25" r="20" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="transparent" />
+                <circle cx="25" cy="25" r="20" stroke={color} strokeWidth="4" fill="transparent"
+                    strokeDasharray={126}
+                    strokeDashoffset={126 - (126 * timeLeftPercent) / 100}
+                    style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+                />
+            </svg>
+            <span style={{ position: 'absolute', fontWeight: 'bold', fontSize: '1rem', color: color }}>{secondsLeft}</span>
+        </div>
+    );
+};
 
 export const GameCanvas: React.FC<Props> = ({
     gameState,
@@ -46,6 +88,9 @@ export const GameCanvas: React.FC<Props> = ({
     isKicked,
     isHost,
     theme,
+    turnExpiresAt,
+    totalTime,
+    timerEnabled,
     onSubmit,
     onVote,
     onRestart,
@@ -65,6 +110,7 @@ export const GameCanvas: React.FC<Props> = ({
             setTerm('');
         }
     };
+    // ... (rest of functions)
 
     const getVoteStatus = () => {
         if (gameState.state !== 'voting') return null;
@@ -96,6 +142,12 @@ export const GameCanvas: React.FC<Props> = ({
 
     // Game Over Screen
     if (gameState.state === 'game_over') {
+        const resetGame = () => {
+            // Reset UI state if needed
+            setShowHistory(false);
+            onRestart();
+        };
+
         return (
             <div className="glass-panel animate-fade-in" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '20px' }}>
                 <Header title="GAME OVER" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
@@ -122,7 +174,7 @@ export const GameCanvas: React.FC<Props> = ({
                         })}
                     </div>
                     <p>Palabra secreta: <strong>{gameState.word}</strong></p>
-                    <button className="btn-primary" onClick={onRestart}>Volver a la Sala</button>
+                    <button className="btn-primary" onClick={resetGame}>Volver a la Sala</button>
                 </div>
             </div>
         );
@@ -367,11 +419,25 @@ export const GameCanvas: React.FC<Props> = ({
             )}
 
             {/* Turn Indicator */}
-            <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
-                    {isMyTurn ? 'TI' : activePlayerName}
+            <div style={{
+                textAlign: 'center',
+                padding: '10px 0',
+                borderBottom: '1px solid var(--glass-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '16px'
+            }}>
+                <div>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
+                        {isMyTurn ? 'TI' : activePlayerName}
+                    </div>
                 </div>
+
+                {timerEnabled && turnExpiresAt && (
+                    <CircleTimer expiresAt={turnExpiresAt} totalDuration={totalTime} />
+                )}
             </div>
 
             {/* Feed */}
