@@ -37,7 +37,7 @@ Para publicar tu juego **Impostor** totalmente gratis, usaremos:
     - **Root Directory**: Haz clic en "Edit" y selecciona la carpeta `client`.
     - **Environment Variables**:
       - Clave: `VITE_SERVER_URL`
-      - Valor: _Pega aquí la URL de Render del Paso 1_ (ej: `https://impostor-server-xyz.onrender.com`).
+      - Valor: _Pega aquí la URL de Render del Paso 1_ "https://impostor-sever.onrender.com"
 5.  Haz clic en **"Deploy"**.
 
 ---
