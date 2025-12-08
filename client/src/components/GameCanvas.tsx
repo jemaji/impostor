@@ -87,6 +87,19 @@ interface GameState {
     winner: 'civilians' | 'impostors' | null;
     paused?: boolean;
     pauseReason?: string;
+    turnExpiresAt?: number | null;
+    roundExpiresAt?: number | null;
+    votingExpiresAt?: number | null;
+    settings?: {
+        timer: boolean;
+        timeLimit: number;
+        punishment: boolean;
+        customPunishment: string;
+        roundTimer: boolean;
+        roundTimeLimit: number;
+        votingTimer: boolean;
+        votingTimeLimit: number;
+    };
 }
 
 interface Props {
@@ -104,8 +117,14 @@ interface Props {
     onCloseRoom: () => void;
     onToggleTheme: () => void;
     turnExpiresAt?: number | null;
+    roundExpiresAt?: number | null;
+    votingExpiresAt?: number | null;
     totalTime: number;
+    roundTotalTime: number;
+    votingTotalTime: number;
     timerEnabled: boolean;
+    roundTimerEnabled: boolean;
+    votingTimerEnabled: boolean;
 }
 
 export const GameCanvas: React.FC<Props> = ({
@@ -123,8 +142,14 @@ export const GameCanvas: React.FC<Props> = ({
     onCloseRoom,
     onToggleTheme,
     turnExpiresAt,
+    roundExpiresAt,
+    votingExpiresAt,
     totalTime,
-    timerEnabled
+    roundTotalTime,
+    votingTotalTime,
+    timerEnabled,
+    roundTimerEnabled,
+    votingTimerEnabled
 }) => {
     const [term, setTerm] = useState('');
     const [holdingRole, setHoldingRole] = useState(false);
@@ -148,6 +173,8 @@ export const GameCanvas: React.FC<Props> = ({
     };
 
     const hasVoted = gameState.votes[myId];
+    const myName = gameState.players.find(p => p.id === myId)?.name;
+    const hasSubmitted = gameState.inputs.some(i => i.playerName === myName);
 
     // Touch handlers for swipe
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -218,6 +245,12 @@ export const GameCanvas: React.FC<Props> = ({
                 onTouchEnd={handleTouchEnd}
             >
                 <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+                {/* Voting Timer */}
+                {votingTimerEnabled && votingExpiresAt && (
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10 }}>
+                        <CircleTimer expiresAt={votingExpiresAt} totalTime={votingTotalTime} />
+                    </div>
+                )}
                 {!showHistory ? (
                     // Front: Voting
                     <div style={{
@@ -442,19 +475,27 @@ export const GameCanvas: React.FC<Props> = ({
 
             {/* Turn Indicator */}
             <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
-                        {isMyTurn ? 'TI' : activePlayerName}
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    {/* Global Round Timer */}
+                    {roundTimerEnabled && roundExpiresAt && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>RONDA</span>
+                            <CircleTimer expiresAt={roundExpiresAt} totalTime={roundTotalTime} />
+                        </div>
+                    )}
+
+                    {/* Simultaneous Writing Status */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Estado</span>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'white' }}>
+                            {hasSubmitted ? 'Esperando...' : 'Escribe tu palabra'}
+                        </div>
                     </div>
                 </div>
-                {timerEnabled && turnExpiresAt && (
-                    <CircleTimer expiresAt={turnExpiresAt} totalTime={totalTime} />
-                )}
             </div>
 
             {/* Input Area */}
-            {!isKicked && isMyTurn ? (
+            {!isKicked && !hasSubmitted ? (
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
                     <input
                         className="input-field"
@@ -469,7 +510,7 @@ export const GameCanvas: React.FC<Props> = ({
                 </form>
             ) : (
                 <div style={{ padding: '16px', borderRadius: '12px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem', opacity: 0.7 }}>
-                    {isKicked ? 'Observando partida...' : `Esperando a ${activePlayerName}...`}
+                    {isKicked ? 'Observando partida...' : 'Esperando a los demás jugadores...'}
                 </div>
             )}
 
