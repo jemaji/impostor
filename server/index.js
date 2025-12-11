@@ -369,6 +369,16 @@ io.on('connection', (socket) => {
         io.to(data.code).emit('room_update', room);
     });
 
+    socket.on('ghost_action', (data) => {
+        const room = rooms[data.code];
+        if (!room) return;
+        // Broadcast the reaction to everyone in the room
+        io.to(data.code).emit('ghost_reaction', {
+            emoji: data.emoji,
+            fromId: socket.id
+        });
+    });
+
     socket.on('leave_room', (data) => {
         const room = rooms[data.code];
         if (!room) return;

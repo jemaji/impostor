@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
 import { audioManager } from '../services/audioManager';
 import { useRef } from 'react';
+import { socket } from '../socket';
+
+const GHOST_EMOJIS = ['👻', '💩', '🤮', '💀', '🤡', '🤥', '👏', '🤣', '😡', '🥶', '❤️', '👀'];
 
 const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: number }) => {
     const [timeLeft, setTimeLeft] = useState(totalTime);
@@ -131,6 +134,34 @@ export const GameCanvas: React.FC<Props> = ({
     const [holdingWord, setHoldingWord] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [touchStart, setTouchStart] = useState(0);
+
+    // Ghost Mode State
+    const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, emoji: string, left: number }[]>([]);
+
+    useEffect(() => {
+        const handleGhostReaction = (data: { emoji: string, fromId: string }) => {
+            const id = Date.now() + Math.random();
+            const left = Math.random() * 80 + 10; // 10% to 90% horizontal position
+            setFloatingEmojis(prev => [...prev, { id, emoji: data.emoji, left }]);
+
+            // Audio feedback
+            audioManager.play('pop'); // Assuming pop exists or fallback
+
+            // Cleanup
+            setTimeout(() => {
+                setFloatingEmojis(prev => prev.filter(item => item.id !== id));
+            }, 3000);
+        };
+
+        socket.on('ghost_reaction', handleGhostReaction);
+        return () => { socket.off('ghost_reaction', handleGhostReaction); };
+    }, []);
+
+    const sendGhostReaction = (emoji: string) => {
+        if (!gameState) return;
+        socket.emit('ghost_action', { code: gameState.code, emoji });
+        audioManager.vibrate(20);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -374,6 +405,14 @@ export const GameCanvas: React.FC<Props> = ({
 
     return (
         <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px', position: 'relative' }}>
+            {/* Floating Emojis Layer */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 100 }}>
+                {floatingEmojis.map(item => (
+                    <div key={item.id} className="floating-emoji" style={{ left: `${item.left}%`, bottom: '10%' }}>
+                        {item.emoji}
+                    </div>
+                ))}
+            </div>
             <Header title="RONDA" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
             {/* Top Header with Secure Buttons */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -435,8 +474,22 @@ export const GameCanvas: React.FC<Props> = ({
             </div>
 
             {isKicked && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--error)' }}>
-                    👻 Has sido expulsado (Espectador)
+                <div style={{
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    padding: '10px',
+                    borderRadius: '12px',
+                    textAlign: 'center',
+                    border: '1px solid var(--accent-secondary)',
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)' }}>👻 MODO FANTASMA 👻</div>
+                    <div className="ghost-toolbar">
+                        {GHOST_EMOJIS.map(emoji => (
+                            <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -444,7 +497,7 @@ export const GameCanvas: React.FC<Props> = ({
             <div style={{ textAlign: 'center', padding: '10px 0', borderBottom: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                 <div>
                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Turno de</span>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'white' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isMyTurn ? 'var(--accent-secondary)' : 'var(--text-primary)' }}>
                         {isMyTurn ? 'TI' : activePlayerName}
                     </div>
                 </div>
