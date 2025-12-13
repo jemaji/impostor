@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { socket } from './socket';
 import { CreateJoin } from './components/CreateJoin';
 import { Lobby } from './components/Lobby';
@@ -61,6 +61,24 @@ function App() {
     const saved = localStorage.getItem('impostor_theme');
     return (saved as 'dark' | 'light') || 'dark';
   });
+  const hasPlayedEndSound = useRef(false);
+
+  // Handle End Game Sound (wait for ejection animation if any)
+  useEffect(() => {
+    if (gameState?.state === 'game_over') {
+      if (!ejectionData && !hasPlayedEndSound.current) {
+        if (gameState.winner === 'civilians') {
+          audioManager.play('win_civilians');
+        } else if (gameState.winner === 'impostors') {
+          audioManager.play('win_impostors');
+        }
+        hasPlayedEndSound.current = true;
+      }
+    } else {
+      // Reset when not in game over
+      hasPlayedEndSound.current = false;
+    }
+  }, [gameState?.state, gameState?.winner, ejectionData]);
 
   // Apply theme to document
   useEffect(() => {
@@ -457,6 +475,8 @@ function App() {
           </>
         )
       }
+
+
     </div >
   );
 }
