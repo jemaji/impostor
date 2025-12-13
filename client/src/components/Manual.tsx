@@ -1,4 +1,5 @@
 import React from 'react';
+import packageJson from '../../package.json';
 
 interface Props {
     onClose: () => void;
@@ -157,7 +158,7 @@ export const Manual: React.FC<Props> = ({ onClose }) => {
                 </section>
 
                 <div style={{ textAlign: 'center', opacity: 0.5, fontSize: '0.8rem', marginTop: '20px', paddingBottom: '20px' }}>
-                    Impostor Mateos v1.5.0
+                    Impostor Mateos v{packageJson.version}
                 </div>
             </div>
 
