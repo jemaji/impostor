@@ -323,9 +323,18 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                                 {isHost ? (
                                     <input
                                         type="number"
-                                        min="5"
                                         value={settings.timeLimit}
-                                        onChange={(e) => onUpdateSettings({ timeLimit: Math.max(5, Number(e.target.value)) })}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            if (e.target.value === '' || val <= 0) {
+                                                // Allow empty temporarily or block 0? User said "can't put 0 or empty".
+                                                // If I block empty, typing is hard. I'll block commit?
+                                                // Since it's direct state update:
+                                                if (val > 0) onUpdateSettings({ timeLimit: val });
+                                            } else {
+                                                onUpdateSettings({ timeLimit: val });
+                                            }
+                                        }}
                                         style={{
                                             width: '60px', padding: '4px', borderRadius: '4px',
                                             border: '1px solid var(--text-secondary)',
