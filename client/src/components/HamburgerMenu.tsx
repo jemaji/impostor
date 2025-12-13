@@ -9,6 +9,7 @@ interface Props {
 
 export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, onCloseRoom }) => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [showModal, setShowModal] = useState(false);
 
     return (
         <>
@@ -130,10 +131,8 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                         {isHost && onCloseRoom && (
                             <button
                                 onClick={() => {
-                                    if (confirm('¿Estás seguro de que quieres cerrar la sala?')) {
-                                        onCloseRoom();
-                                        setMenuOpen(false);
-                                    }
+                                    setMenuOpen(false); // Close menu first
+                                    setShowModal(true); // Open custom modal
                                 }}
                                 style={{
                                     width: '100%',
@@ -164,6 +163,75 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                         )}
                     </div>
                 </>
+            )}
+            {/* Confirmation Modal */}
+            {showModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 2000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(4px)',
+                    animation: 'fadeIn 0.2s ease-out'
+                }}>
+                    <div style={{
+                        background: 'var(--glass-bg)',
+                        border: '2px solid var(--glass-border)',
+                        padding: '24px',
+                        borderRadius: '16px',
+                        width: '80%',
+                        maxWidth: '320px',
+                        textAlign: 'center',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                        color: 'var(--text-primary)'
+                    }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '1.4rem' }}>⚠️ Cerrar Sala</h3>
+                        <p style={{ marginBottom: '24px', opacity: 0.8 }}>¿Estás seguro de que quieres cerrar la sala para todos?</p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--glass-border)',
+                                    background: 'rgba(255,255,255,0.1)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: 500
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (onCloseRoom) onCloseRoom();
+                                    setShowModal(false);
+                                    setMenuOpen(false);
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'var(--error)',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                                }}
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );

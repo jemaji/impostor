@@ -84,7 +84,8 @@ interface GameState {
     impostorWord: string;
     impostorIds: string[];
     turnIndex: number;
-    inputs: { playerName: string, term: string }[];
+    round: number;
+    inputs: { playerName: string, term: string, round?: number }[];
     votes: Record<string, string>;
     kickedIds: string[];
     winner: 'civilians' | 'impostors' | null;
@@ -137,6 +138,28 @@ export const GameCanvas: React.FC<Props> = ({
 
     // Ghost Mode State
     const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, emoji: string, left: number }[]>([]);
+    const [expandedRound, setExpandedRound] = useState<number | null>(gameState.round || 1);
+
+    // Auto-expand using derived state pattern
+    const [prevGameRound, setPrevGameRound] = useState(gameState.round);
+    if (gameState.round !== prevGameRound) {
+        setPrevGameRound(gameState.round);
+        setExpandedRound(gameState.round);
+    }
+
+    const toggleRound = (r: number) => {
+        setExpandedRound(prev => (prev === r ? null : r));
+    };
+
+    // Group inputs by round
+    const groupedInputs = gameState.inputs.reduce((acc, input) => {
+        const r = input.round || 1;
+        if (!acc[r]) acc[r] = [];
+        acc[r].push(input);
+        return acc;
+    }, {} as Record<number, typeof gameState.inputs>);
+
+    const sortedRounds = Object.keys(groupedInputs).map(Number).sort((a, b) => b - a);
 
     useEffect(() => {
         const handleGhostReaction = (data: { emoji: string, fromId: string }) => {
@@ -356,38 +379,82 @@ export const GameCanvas: React.FC<Props> = ({
                             </button>
                         </div>
 
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {gameState.inputs.map((input, idx) => {
-                                const p = gameState.players.find(pl => pl.name === input.playerName);
-                                return (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            padding: '12px',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            borderRadius: '12px',
-                                            borderLeft: `4px solid ${p?.color || 'transparent'}`,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px'
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: '32px', height: '32px', borderRadius: '50%',
-                                            background: p?.color || 'gray',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '18px',
-                                            flexShrink: 0
-                                        }}>
-                                            {p?.avatar || '👤'}
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {sortedRounds.length > 0 ? (
+                                sortedRounds.map(roundNum => {
+                                    const isCurrentRound = roundNum === gameState.round;
+                                    // In Voting/History, gameState.round is still the "just finished" round usually, 
+                                    // or checking against expandedRound is enough.
+                                    const isExpanded = roundNum === expandedRound;
+                                    const roundInputs = groupedInputs[roundNum];
+
+                                    return (
+                                        <div key={roundNum} className="glass-panel" style={{ padding: '0', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                                            <button
+                                                onClick={() => toggleRound(roundNum)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px',
+                                                    background: isCurrentRound ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.05)',
+                                                    border: 'none',
+                                                    borderBottom: isExpanded ? '1px solid var(--glass-border)' : 'none',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    color: isCurrentRound ? 'var(--accent-secondary)' : 'var(--text-primary)',
+                                                    cursor: 'pointer',
+                                                    outline: 'none',
+                                                    boxShadow: 'none',
+                                                    WebkitTapHighlightColor: 'transparent'
+                                                }}
+                                            >
+                                                <span style={{ fontWeight: 'bold' }}>
+                                                    {isCurrentRound ? `Ronda Actual (${roundNum})` : `Ronda ${roundNum}`}
+                                                </span>
+                                                <span>{isExpanded ? '▲' : '▼'}</span>
+                                            </button>
+
+                                            {isExpanded && (
+                                                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {roundInputs.slice().reverse().map((input, idx) => {
+                                                        const p = gameState.players.find(pl => pl.name === input.playerName);
+                                                        return (
+                                                            <div
+                                                                key={idx}
+                                                                style={{
+                                                                    padding: '12px',
+                                                                    background: 'rgba(255,255,255,0.05)',
+                                                                    borderRadius: '12px',
+                                                                    borderLeft: `4px solid ${p?.color || 'transparent'}`,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '12px'
+                                                                }}
+                                                            >
+                                                                <div style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                    background: p?.color || 'gray',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    fontSize: '18px',
+                                                                    flexShrink: 0
+                                                                }}>
+                                                                    {p?.avatar || '👤'}
+                                                                </div>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '4px' }}>{input.playerName}</div>
+                                                                    <div style={{ fontWeight: 'bold' }}>{input.term}</div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '4px' }}>{input.playerName}</div>
-                                            <div style={{ fontWeight: 'bold' }}>{input.term}</div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })
+                            ) : (
+                                <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>No hay historial aún.</p>
+                            )}
                         </div>
                     </div>
                 )}
@@ -527,35 +594,77 @@ export const GameCanvas: React.FC<Props> = ({
             )}
 
             {/* Feed */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {gameState.inputs.slice().reverse().map((input, i) => {
-                    const p = gameState.players.find(pl => pl.name === input.playerName);
-                    return (
-                        <div key={i} className="animate-fade-in" style={{
-                            display: 'flex',
-                            gap: '12px',
-                            alignItems: 'center',
-                            padding: '12px',
-                            background: 'rgba(255,255,255,0.03)',
-                            borderRadius: '12px',
-                            borderLeft: `4px solid ${p?.color || 'transparent'}`
-                        }}>
-                            <div style={{
-                                width: '36px', height: '36px', borderRadius: '50%',
-                                background: p?.color || 'gray',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '20px', flexShrink: 0
-                            }}>
-                                {p?.avatar || '👤'}
+            {/* Feed */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {sortedRounds.length > 0 ? (
+                    sortedRounds.map(roundNum => {
+                        const isCurrentRound = roundNum === gameState.round;
+                        const isExpanded = roundNum === expandedRound;
+                        const roundInputs = groupedInputs[roundNum];
+
+                        return (
+                            <div key={roundNum} className="glass-panel" style={{ padding: '0', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                                {/* Round Header */}
+                                <button
+                                    onClick={() => toggleRound(roundNum)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: isCurrentRound ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.05)',
+                                        border: 'none',
+                                        borderBottom: isExpanded ? '1px solid var(--glass-border)' : 'none',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        color: isCurrentRound ? 'var(--accent-secondary)' : 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        boxShadow: 'none',
+                                        WebkitTapHighlightColor: 'transparent'
+                                    }}
+                                >
+                                    <span style={{ fontWeight: 'bold' }}>
+                                        {isCurrentRound ? `Ronda Actual (${roundNum})` : `Ronda ${roundNum}`}
+                                    </span>
+                                    <span>{isExpanded ? '▲' : '▼'}</span>
+                                </button>
+
+                                {/* Round Inputs */}
+                                {isExpanded && (
+                                    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {roundInputs.slice().reverse().map((input, i) => {
+                                            const p = gameState.players.find(pl => pl.name === input.playerName);
+                                            return (
+                                                <div key={i} className="animate-fade-in" style={{
+                                                    display: 'flex',
+                                                    gap: '12px',
+                                                    alignItems: 'center',
+                                                    padding: '12px',
+                                                    background: 'rgba(255,255,255,0.03)',
+                                                    borderRadius: '12px',
+                                                    borderLeft: `4px solid ${p?.color || 'transparent'}`
+                                                }}>
+                                                    <div style={{
+                                                        width: '36px', height: '36px', borderRadius: '50%',
+                                                        background: p?.color || 'gray',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: '20px', flexShrink: 0
+                                                    }}>
+                                                        {p?.avatar || '👤'}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
-                            </div>
-                        </div>
-                    );
-                })}
-                {gameState.inputs.length === 0 && (
+                        );
+                    })
+                ) : (
                     <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>Esperando el primer término...</p>
                 )}
             </div>

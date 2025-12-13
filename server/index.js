@@ -61,7 +61,7 @@ const handleTurnTimeout = (room, code, io) => {
 };
 
 const processSubmission = (room, code, io, playerName, term, isAuto = false) => {
-    room.inputs.push({ playerName, term });
+    room.inputs.push({ playerName, term, round: room.round });
 
     if (room.turnTimer) clearTimeout(room.turnTimer);
     room.turnExpiresAt = null;
@@ -113,6 +113,7 @@ io.on('connection', (socket) => {
             impostorWord: '', // For hard mode
             impostorIds: [],
             turnIndex: 0,
+            round: 1,
             inputs: [], // { playerName: string, term: string }
             kickedIds: [],
             votes: {},
@@ -268,6 +269,7 @@ io.on('connection', (socket) => {
         }
 
         room.turnIndex = Math.floor(Math.random() * playerCount);
+        room.round = 1;
         room.inputs = [];
         room.votes = {}; // { [voterId]:  targetId | 'skip' }
         room.kickedIds = []; // Array of ids
@@ -330,10 +332,12 @@ io.on('connection', (socket) => {
                     room.winner = 'impostors';
                 } else {
                     room.state = 'playing';
+                    room.round++;
                 }
             } else {
                 // Tie or Skip
                 room.state = 'playing';
+                room.round++;
             }
 
             if (room.state === 'playing') {
