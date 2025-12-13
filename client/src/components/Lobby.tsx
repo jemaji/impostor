@@ -319,7 +319,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                     {settings?.timer && (
                         <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tiempo por turno:</span>
+                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tiempo por turno (seg):</span>
                                 {isHost ? (
                                     <input
                                         type="number"
