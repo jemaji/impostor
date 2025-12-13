@@ -82,6 +82,21 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                 </div>
                 <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '-5px' }}>Toca para copiar código</p>
             </div>
+            {/* Action Buttons (Host Start / Waiting) */}
+            {isHost ? (
+                <button
+                    className="btn-primary"
+                    onClick={onStart}
+                    disabled={players.length < 3}
+                    style={{ opacity: players.length < 3 ? 0.5 : 1 }}
+                >
+                    {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Comenzar Partida'}
+                </button>
+            ) : (
+                <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                    Esperando al anfitrión...
+                </div>
+            )}
 
             {/* Players List */}
             <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -340,20 +355,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
             </div>
 
             {/* Action Buttons */}
-            {isHost ? (
-                <button
-                    className="btn-primary"
-                    onClick={onStart}
-                    disabled={players.length < 3}
-                    style={{ opacity: players.length < 3 ? 0.5 : 1 }}
-                >
-                    {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Comenzar Partida'}
-                </button>
-            ) : (
-                <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                    Esperando al anfitrión...
-                </div>
-            )}
+
 
             {!isHost && (
                 <button

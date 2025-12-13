@@ -272,6 +272,14 @@ export const GameCanvas: React.FC<Props> = ({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
+                {/* Floating Emojis Layer */}
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 100 }}>
+                    {floatingEmojis.map(item => (
+                        <div key={item.id} className="floating-emoji" style={{ left: `${item.left}%`, bottom: '10%' }}>
+                            {item.emoji}
+                        </div>
+                    ))}
+                </div>
                 <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
                 {!showHistory ? (
                     // Front: Voting
@@ -300,6 +308,26 @@ export const GameCanvas: React.FC<Props> = ({
                             </button>
                         </div>
                         <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: '20px' }}>{getVoteStatus()}</p>
+
+                        {isKicked && (
+                            <div style={{
+                                marginBottom: '10px',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                padding: '10px',
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                border: '1px solid var(--accent-secondary)',
+                                backdropFilter: 'blur(4px)'
+                            }}>
+                                <div className="ghost-toolbar" style={{ justifyContent: 'center' }}>
+                                    {GHOST_EMOJIS.map(emoji => (
+                                        <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => {
@@ -384,26 +412,7 @@ export const GameCanvas: React.FC<Props> = ({
                         {hasVoted && !isKicked && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}
                         {isKicked && <p style={{ textAlign: 'center', marginTop: '10px', color: 'var(--accent-secondary)' }}>👻 Vota para asustar a los vivos (Click en su nombre)</p>}
 
-                        {isKicked && (
-                            <div style={{
-                                marginTop: '10px',
-                                background: 'rgba(139, 92, 246, 0.1)',
-                                padding: '10px',
-                                borderRadius: '12px',
-                                textAlign: 'center',
-                                border: '1px solid var(--accent-secondary)',
-                                backdropFilter: 'blur(4px)'
-                            }}>
-                                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)', fontSize: '0.9rem' }}>REACCIONES</div>
-                                <div className="ghost-toolbar" style={{ justifyContent: 'center' }}>
-                                    {GHOST_EMOJIS.map(emoji => (
-                                        <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
-                                            {emoji}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+
                     </div>
                 ) : (
                     // Back: Conversation History
