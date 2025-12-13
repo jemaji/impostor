@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Manual } from './Manual';
 
 interface Props {
     theme: 'dark' | 'light';
@@ -9,6 +11,15 @@ interface Props {
 
 export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, onCloseRoom }) => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [showManual, setShowManual] = useState(false);
+    const { installPrompt, installApp, isAppInstalled } = usePWAInstall();
+
+    // Simple iOS detection for showing the button even if no prompt (manual instructions)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    // Show install button if customizable prompt exists OR it's iOS and not already installed
+    const showInstallButton = (installPrompt || isIOS) && !isAppInstalled;
 
     return (
         <>
@@ -126,14 +137,67 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                             <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>
                         </button>
 
+                        {/* Manual Button */}
+                        <button
+                            onClick={() => {
+                                setMenuOpen(false);
+                                setShowManual(true);
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                marginTop: '8px',
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                border: '2px solid var(--glass-border)',
+                                borderRadius: '8px',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            <span style={{ fontSize: '1.2rem' }}>📖</span>
+                            <span>Manual de Juego</span>
+                        </button>
+
+                        {/* Install PWA Button */}
+                        {showInstallButton && (
+                            <button
+                                onClick={() => {
+                                    installApp();
+                                    setMenuOpen(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    marginTop: '8px',
+                                    background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                                    animation: 'pulse 2s infinite'
+                                }}
+                            >
+                                <span>📲</span>
+                                <span>Instalar App</span>
+                            </button>
+                        )}
+
                         {/* Close Room (Host Only) */}
                         {isHost && onCloseRoom && (
                             <button
                                 onClick={() => {
-                                    if (confirm('¿Estás seguro de que quieres cerrar la sala?')) {
-                                        onCloseRoom();
-                                        setMenuOpen(false);
-                                    }
+                                    setMenuOpen(false); // Close menu first
+                                    setShowModal(true); // Open custom modal
                                 }}
                                 style={{
                                     width: '100%',
@@ -164,6 +228,79 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                         )}
                     </div>
                 </>
+            )}
+            {/* Confirmation Modal */}
+            {showModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 2000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(4px)',
+                    animation: 'fadeIn 0.2s ease-out'
+                }}>
+                    <div style={{
+                        background: 'var(--glass-bg)',
+                        border: '2px solid var(--glass-border)',
+                        padding: '24px',
+                        borderRadius: '16px',
+                        width: '80%',
+                        maxWidth: '320px',
+                        textAlign: 'center',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                        color: 'var(--text-primary)'
+                    }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '1.4rem' }}>⚠️ Cerrar Sala</h3>
+                        <p style={{ marginBottom: '24px', opacity: 0.8 }}>¿Estás seguro de que quieres cerrar la sala para todos?</p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--glass-border)',
+                                    background: 'rgba(255,255,255,0.1)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: 500
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (onCloseRoom) onCloseRoom();
+                                    setShowModal(false);
+                                    setMenuOpen(false);
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'var(--error)',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                                }}
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Manual Modal */}
+            {showManual && (
+                <Manual onClose={() => setShowManual(false)} />
             )}
         </>
     );

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { ReloadPrompt } from './components/ReloadPrompt';
 import { socket } from './socket';
 import { CreateJoin } from './components/CreateJoin';
 import { Lobby } from './components/Lobby';
@@ -10,6 +11,7 @@ import './styles/index.css';
 
 interface Player {
   id: string;
+  userId: string;
   name: string;
   isHost: boolean;
   color?: string;
@@ -29,6 +31,7 @@ interface GameState {
   turnIndex: number;
   inputs: { playerName: string, term: string }[];
   votes: Record<string, string>;
+  ghostVotes?: Record<string, string>;
   kickedIds: string[];
   winner: 'civilians' | 'impostors' | null;
   paused?: boolean;
@@ -38,10 +41,15 @@ interface GameState {
     timeLimit: number;
     punishment: boolean;
     customPunishment: string;
+    roundTimer: boolean;
+    roundTimeLimit: number;
+    votingTimer: boolean;
+    votingTimeLimit: number;
   };
   turnExpiresAt?: number | null;
   roundExpiresAt?: number | null;
   votingExpiresAt?: number | null;
+  round: number;
 }
 
 interface EjectionData {
@@ -55,12 +63,31 @@ function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [ejectionData, setEjectionData] = useState<EjectionData | null>(null);
   const [showWakeUpMessage, setShowWakeUpMessage] = useState(false);
+  const [showRoomClosedModal, setShowRoomClosedModal] = useState(false);
   const [shake, setShake] = useState(false);
   const [myName, setMyName] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('impostor_theme');
     return (saved as 'dark' | 'light') || 'dark';
   });
+  const hasPlayedEndSound = useRef(false);
+
+  // Handle End Game Sound (wait for ejection animation if any)
+  useEffect(() => {
+    if (gameState?.state === 'game_over') {
+      if (!ejectionData && !hasPlayedEndSound.current) {
+        if (gameState.winner === 'civilians') {
+          audioManager.play('win_civilians');
+        } else if (gameState.winner === 'impostors') {
+          audioManager.play('win_impostors');
+        }
+        hasPlayedEndSound.current = true;
+      }
+    } else {
+      // Reset when not in game over
+      hasPlayedEndSound.current = false;
+    }
+  }, [gameState?.state, gameState?.winner, ejectionData]);
 
   // Apply theme to document
   useEffect(() => {
@@ -125,7 +152,21 @@ function App() {
       setGameState(currentRoom => {
         // Detect if someone was newly kicked to trigger animation
         if (currentRoom) {
-          const newKicks = room.kickedIds.filter(id => !currentRoom.kickedIds.includes(id));
+          const newKicks = room.kickedIds.filter(id => {
+            // Check if strict ID is new
+            if (currentRoom.kickedIds.includes(id)) return false;
+
+            // Check if USER (persistent ID) was already kicked (handles reconnection)
+            const player = room.players.find(p => p.id === id);
+            if (!player) return true;
+
+            const wasAlreadyKicked = currentRoom.kickedIds.some(oldKickedId => {
+              const oldPlayer = currentRoom.players.find(p => p.id === oldKickedId);
+              return oldPlayer && oldPlayer.userId === player.userId;
+            });
+
+            return !wasAlreadyKicked;
+          });
           if (newKicks.length > 0) {
             const kickedId = newKicks[0];
             const kickedPlayer = room.players.find(p => p.id === kickedId);
@@ -186,7 +227,7 @@ function App() {
       // Room was closed by host
       localStorage.removeItem('impostor_room');
       setGameState(null);
-      alert('El anfitrión ha cerrado la sala');
+      setShowRoomClosedModal(true);
     });
 
     // Reconnection logic
@@ -369,66 +410,103 @@ function App() {
             <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
           </div>
         </div>
-      )}
+      )
+      }
 
-      {!gameState ? (
-        <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />
-      ) : (
-        <>
-          {ejectionData && (
-            <EjectionAnimation
-              name={ejectionData.name}
-              isImpostor={ejectionData.isImpostor}
-              color={ejectionData.color}
-              avatar={ejectionData.avatar}
-              onComplete={() => setEjectionData(null)}
-            />
-          )}
+      {/* Room Closed Modal */}
+      {
+        showRoomClosedModal && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <div className="glass-panel" style={{
+              padding: '24px', width: '80%', maxWidth: '320px',
+              textAlign: 'center', border: '2px solid var(--error)',
+              boxShadow: '0 8px 32px rgba(239, 68, 68, 0.2)'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🚪</div>
+              <h3 style={{ fontSize: '1.4rem', marginBottom: '12px', color: 'var(--text-primary)' }}>Sala Cerrada</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                El anfitrión ha cerrado la sala.
+              </p>
+              <button
+                onClick={() => setShowRoomClosedModal(false)}
+                className="btn-primary"
+                style={{ width: '100%' }}
+              >
+                Volver al inicio
+              </button>
+            </div>
+          </div>
+        )
+      }
 
-          {gameState.state === 'lobby' ? (
-            <Lobby
-              roomCode={gameState.code}
-              players={gameState.players}
-              isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
-              difficulty={gameState.difficulty || 'normal'}
-              category={gameState.category || null}
-              theme={theme}
-              onStart={handleStart}
-              onLeave={handleLeave}
-              onDifficultyChange={handleDifficultyChange}
-              onCategoryChange={handleCategoryChange}
-              onToggleTheme={toggleTheme}
-              settings={gameState.settings}
-              onUpdateSettings={handleUpdateSettings}
-            />
-          ) : (
-            <GameCanvas
-              gameState={gameState}
-              myId={socket.id || ''}
-              myRole={gameState.impostorIds.includes(socket.id || '') ? 'impostor' : 'civilian'}
-              isMyTurn={gameState.turnIndex !== -1 && gameState.players[gameState.turnIndex]?.id === socket.id && !gameState.kickedIds.includes(socket.id || '')}
-              activePlayerName={gameState.players[gameState.turnIndex]?.name || ''}
-              isKicked={gameState.kickedIds.includes(socket.id || '')}
-              isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
-              theme={theme}
-              onSubmit={handleSubmit}
-              onVote={handleVote}
-              onRestart={handleRestart}
-              onCloseRoom={handleLeave}
-              onToggleTheme={toggleTheme}
-              turnExpiresAt={gameState.turnExpiresAt}
-              roundExpiresAt={gameState.roundExpiresAt}
-              votingExpiresAt={gameState.votingExpiresAt}
-              totalTime={gameState.settings?.timeLimit || 15}
-              roundTotalTime={gameState.settings?.roundTimeLimit || 60}
-              votingTotalTime={gameState.settings?.votingTimeLimit || 30}
-              timerEnabled={gameState.settings?.timer || false}
-              roundTimerEnabled={gameState.settings?.roundTimer || false}
-              votingTimerEnabled={gameState.settings?.votingTimer || false}
-            />
-          )}
-        </>
-      )}
+      {
+        !gameState ? (
+          <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />
+        ) : (
+          <>
+            {ejectionData && (
+              <EjectionAnimation
+                name={ejectionData.name}
+                isImpostor={ejectionData.isImpostor}
+                color={ejectionData.color}
+                avatar={ejectionData.avatar}
+                onComplete={() => setEjectionData(null)}
+              />
+            )}
+
+            {gameState.state === 'lobby' ? (
+              <Lobby
+                roomCode={gameState.code}
+                players={gameState.players}
+                isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
+                difficulty={gameState.difficulty || 'normal'}
+                category={gameState.category || null}
+                theme={theme}
+                onStart={handleStart}
+                onLeave={handleLeave}
+                onDifficultyChange={handleDifficultyChange}
+                onCategoryChange={handleCategoryChange}
+                onToggleTheme={toggleTheme}
+                settings={gameState.settings}
+                onUpdateSettings={handleUpdateSettings}
+              />
+            ) : (
+              <GameCanvas
+                gameState={gameState}
+                myId={socket.id || ''}
+                myRole={gameState.impostorIds.includes(socket.id || '') ? 'impostor' : 'civilian'}
+                isMyTurn={gameState.turnIndex !== -1 && gameState.players[gameState.turnIndex]?.id === socket.id && !gameState.kickedIds.includes(socket.id || '')}
+                activePlayerName={gameState.players[gameState.turnIndex]?.name || ''}
+                isKicked={gameState.kickedIds.includes(socket.id || '')}
+                isHost={gameState.players.find(p => p.id === socket.id)?.isHost || false}
+                theme={theme}
+                onSubmit={handleSubmit}
+                onVote={handleVote}
+                onRestart={handleRestart}
+                onCloseRoom={handleLeave}
+                onToggleTheme={toggleTheme}
+                turnExpiresAt={gameState.turnExpiresAt}
+                roundExpiresAt={gameState.roundExpiresAt}
+                votingExpiresAt={gameState.votingExpiresAt}
+                totalTime={gameState.settings?.timeLimit || 15}
+                roundTotalTime={gameState.settings?.roundTimeLimit || 60}
+                votingTotalTime={gameState.settings?.votingTimeLimit || 30}
+                timerEnabled={gameState.settings?.timer || false}
+                roundTimerEnabled={gameState.settings?.roundTimer || false}
+                votingTimerEnabled={gameState.settings?.votingTimer || false}
+              />
+            )}
+          </>
+        )
+      }
+
+
+      <ReloadPrompt />
     </div>
   );
 }

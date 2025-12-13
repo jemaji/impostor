@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
 import { audioManager } from '../services/audioManager';
 import { useRef } from 'react';
+import { socket } from '../socket';
+
+const GHOST_EMOJIS = ['👻', '💩', '🤮', '💀', '🤡', '🤥', '👏', '🤣', '😡', '🥶', '❤️', '👀'];
 
 const CircleTimer = ({ expiresAt, totalTime }: { expiresAt: number, totalTime: number }) => {
     const [timeLeft, setTimeLeft] = useState(totalTime);
@@ -81,8 +84,10 @@ interface GameState {
     impostorWord: string;
     impostorIds: string[];
     turnIndex: number;
-    inputs: { playerName: string, term: string }[];
+    round: number;
+    inputs: { playerName: string, term: string, round?: number }[];
     votes: Record<string, string>;
+    ghostVotes?: Record<string, string>;
     kickedIds: string[];
     winner: 'civilians' | 'impostors' | null;
     paused?: boolean;
@@ -100,6 +105,7 @@ interface GameState {
         votingTimer: boolean;
         votingTimeLimit: number;
     };
+    currentPunishment?: string | null;
 }
 
 interface Props {
@@ -131,8 +137,6 @@ export const GameCanvas: React.FC<Props> = ({
     gameState,
     myId,
     myRole,
-    isMyTurn,
-    activePlayerName,
     isKicked,
     isHost,
     theme,
@@ -141,13 +145,10 @@ export const GameCanvas: React.FC<Props> = ({
     onRestart,
     onCloseRoom,
     onToggleTheme,
-    turnExpiresAt,
     roundExpiresAt,
     votingExpiresAt,
-    totalTime,
     roundTotalTime,
     votingTotalTime,
-    timerEnabled,
     roundTimerEnabled,
     votingTimerEnabled
 }) => {
@@ -156,6 +157,56 @@ export const GameCanvas: React.FC<Props> = ({
     const [holdingWord, setHoldingWord] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [touchStart, setTouchStart] = useState(0);
+
+    // Ghost Mode State
+    const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, emoji: string, left: number }[]>([]);
+    const [expandedRound, setExpandedRound] = useState<number | null>(gameState.round || 1);
+
+    // Auto-expand using derived state pattern
+    const [prevGameRound, setPrevGameRound] = useState(gameState.round);
+    if (gameState.round !== prevGameRound) {
+        setPrevGameRound(gameState.round);
+        setExpandedRound(gameState.round);
+    }
+
+    const toggleRound = (r: number) => {
+        setExpandedRound(prev => (prev === r ? null : r));
+    };
+
+    // Group inputs by round
+    const groupedInputs = gameState.inputs.reduce((acc, input) => {
+        const r = input.round || 1;
+        if (!acc[r]) acc[r] = [];
+        acc[r].push(input);
+        return acc;
+    }, {} as Record<number, typeof gameState.inputs>);
+
+    const sortedRounds = Object.keys(groupedInputs).map(Number).sort((a, b) => b - a);
+
+    useEffect(() => {
+        const handleGhostReaction = (data: { emoji: string, fromId: string }) => {
+            const id = Date.now() + Math.random();
+            const left = Math.random() * 80 + 10; // 10% to 90% horizontal position
+            setFloatingEmojis(prev => [...prev, { id, emoji: data.emoji, left }]);
+
+            // Audio feedback
+            audioManager.play('pop'); // Assuming pop exists or fallback
+
+            // Cleanup
+            setTimeout(() => {
+                setFloatingEmojis(prev => prev.filter(item => item.id !== id));
+            }, 3000);
+        };
+
+        socket.on('ghost_reaction', handleGhostReaction);
+        return () => { socket.off('ghost_reaction', handleGhostReaction); };
+    }, []);
+
+    const sendGhostReaction = (emoji: string) => {
+        if (!gameState) return;
+        socket.emit('ghost_action', { code: gameState.code, emoji });
+        audioManager.vibrate(20);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -222,6 +273,25 @@ export const GameCanvas: React.FC<Props> = ({
                             );
                         })}
                     </div>
+
+                    {gameState.currentPunishment && (
+                        <div style={{
+                            marginTop: '20px',
+                            padding: '16px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid var(--error)',
+                            borderRadius: '12px',
+                            maxWidth: '90%'
+                        }}>
+                            <h3 style={{ color: 'var(--error)', margin: '0 0 8px 0', fontSize: '1.2rem' }}>💀 CASTIGO 💀</h3>
+                            <p style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                {gameState.currentPunishment}
+                            </p>
+                            <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '8px' }}>
+                                (Opcional para los perdedores)
+                            </p>
+                        </div>
+                    )}
                     <p>Palabra secreta: <strong>{gameState.word}</strong></p>
                     <button className="btn-primary" onClick={onRestart}>Volver a la Sala</button>
                 </div>
@@ -244,6 +314,14 @@ export const GameCanvas: React.FC<Props> = ({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
+                {/* Floating Emojis Layer */}
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 100 }}>
+                    {floatingEmojis.map(item => (
+                        <div key={item.id} className="floating-emoji" style={{ left: `${item.left}%`, bottom: '10%' }}>
+                            {item.emoji}
+                        </div>
+                    ))}
+                </div>
                 <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
                 {/* Voting Timer - Moved to Header area or just below */}
                 {gameState.state === 'voting' && votingTimerEnabled && votingExpiresAt && (
@@ -288,41 +366,131 @@ export const GameCanvas: React.FC<Props> = ({
                         </div>
                         <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: '20px' }}>{getVoteStatus()}</p>
 
+                        {isKicked && (
+                            <div style={{
+                                marginBottom: '10px',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                padding: '10px',
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                border: '1px solid var(--accent-secondary)',
+                                backdropFilter: 'blur(4px)'
+                            }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)' }}>👻 MODO FANTASMA 👻</div>
+                                <div className="ghost-toolbar">
+                                    {GHOST_EMOJIS.map(emoji => (
+                                        <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => (
+                            {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => {
+                                // Count ghost votes for this player
+                                const ghostVoteCount = Object.values(gameState.ghostVotes || {}).filter(targetId => targetId === p.id).length;
+                                const myGhostVote = gameState.ghostVotes?.[myId];
+                                const isMyGhostTarget = myGhostVote === p.id;
+
+                                return (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => {
+                                            if (isKicked) {
+                                                // Ghost Vote
+                                                socket.emit('ghost_vote', { code: gameState.code, targetId: p.id });
+                                                audioManager.play('pop');
+                                            } else if (!hasVoted) {
+                                                onVote(p.id);
+                                            }
+                                        }}
+                                        disabled={!isKicked && !!hasVoted}
+                                        style={{
+                                            padding: '12px',
+                                            background: (!isKicked && gameState.votes[myId] === p.id) || (isKicked && isMyGhostTarget) ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                                            border: (isKicked && isMyGhostTarget) ? '2px solid white' : '1px solid var(--glass-border)',
+                                            borderRadius: '12px',
+                                            textAlign: 'left',
+                                            color: 'var(--text-primary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            justifyContent: 'flex-start',
+                                            opacity: (!isKicked && hasVoted && gameState.votes[myId] !== p.id) ? 0.5 : 1,
+                                            cursor: (isKicked || (!hasVoted)) ? 'pointer' : 'default',
+                                            position: 'relative',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '32px', height: '32px', borderRadius: '50%',
+                                            background: p.color || 'gray',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '18px'
+                                        }}>
+                                            {p.avatar || '👤'}
+                                        </div>
+                                        <span style={{ flex: 1 }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+
+                                        {/* Ghost Votes Display */}
+                                        <div style={{ display: 'flex', gap: '2px' }}>
+                                            {Array.from({ length: ghostVoteCount }).map((_, i) => (
+                                                <span key={i} className="animate-pop" style={{ fontSize: '1.2rem', animationDelay: `${i * 0.1}s` }}>👻</span>
+                                            ))}
+                                        </div>
+
+                                        {/* Reveal Votes */}
+                                        {gameState.state === 'revealing' && (
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                {Object.entries(gameState.votes)
+                                                    .filter(([_, targetId]) => targetId === p.id)
+                                                    .map(([voterId]) => {
+                                                        const voter = gameState.players.find(pl => pl.id === voterId);
+                                                        return (
+                                                            <div key={voterId} style={{
+                                                                width: '24px', height: '24px', borderRadius: '50%',
+                                                                background: voter?.color || 'gray',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                fontSize: '12px', border: '1px solid white'
+                                                            }} title={voter?.name}>
+                                                                {voter?.avatar || '👤'}
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        )}
+                                    </button>
+                                )
+                            })}
+
+
+                            {/* Skip Button - Only for alive players */}
+                            {!isKicked && (
                                 <button
-                                    key={p.id}
-                                    onClick={() => !hasVoted && !isKicked && gameState.state !== 'revealing' && onVote(p.id)}
+                                    onClick={() => !hasVoted && !isKicked && onVote('skip')}
                                     disabled={!!hasVoted || isKicked || gameState.state === 'revealing'}
                                     style={{
+                                        marginTop: '10px',
                                         padding: '12px',
-                                        background: gameState.votes[myId] === p.id ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
-                                        border: '1px solid var(--glass-border)',
+                                        background: 'rgba(139, 92, 246, 0.15)',
+                                        border: '2px solid var(--glass-border)',
                                         borderRadius: '12px',
-                                        textAlign: 'left',
-                                        color: 'var(--text-primary)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        justifyContent: 'flex-start',
-                                        opacity: (hasVoted || isKicked) && gameState.votes[myId] !== p.id ? 0.5 : 1
+                                        color: 'var(--text-secondary)',
+                                        opacity: hasVoted || isKicked || gameState.state === 'revealing' ? 0.5 : 1,
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                                     }}
                                 >
-                                    <div style={{
-                                        width: '32px', height: '32px', borderRadius: '50%',
-                                        background: p.color || 'gray',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '18px'
-                                    }}>
-                                        {p.avatar || '👤'}
-                                    </div>
-                                    <span style={{ flex: 1 }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+                                    <span>Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}</span>
 
-                                    {/* Reveal Votes */}
+                                    {/* Reveal Skips */}
                                     {gameState.state === 'revealing' && (
                                         <div style={{ display: 'flex', gap: '4px' }}>
                                             {Object.entries(gameState.votes)
-                                                .filter(([_, targetId]) => targetId === p.id)
+                                                .filter(([_, targetId]) => targetId === 'skip')
                                                 .map(([voterId]) => {
                                                     const voter = gameState.players.find(pl => pl.id === voterId);
                                                     return (
@@ -339,49 +507,13 @@ export const GameCanvas: React.FC<Props> = ({
                                         </div>
                                     )}
                                 </button>
-                            ))}
+                            )}
 
-                            <button
-                                onClick={() => !hasVoted && !isKicked && onVote('skip')}
-                                disabled={!!hasVoted || isKicked || gameState.state === 'revealing'}
-                                style={{
-                                    marginTop: '10px',
-                                    padding: '12px',
-                                    background: 'rgba(139, 92, 246, 0.15)',
-                                    border: '2px solid var(--glass-border)',
-                                    borderRadius: '12px',
-                                    color: 'var(--text-secondary)',
-                                    opacity: hasVoted || isKicked || gameState.state === 'revealing' ? 0.5 : 1,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-                                }}
-                            >
-                                <span>Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}</span>
-
-                                {/* Reveal Skips */}
-                                {gameState.state === 'revealing' && (
-                                    <div style={{ display: 'flex', gap: '4px' }}>
-                                        {Object.entries(gameState.votes)
-                                            .filter(([_, targetId]) => targetId === 'skip')
-                                            .map(([voterId]) => {
-                                                const voter = gameState.players.find(pl => pl.id === voterId);
-                                                return (
-                                                    <div key={voterId} style={{
-                                                        width: '24px', height: '24px', borderRadius: '50%',
-                                                        background: voter?.color || 'gray',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        fontSize: '12px', border: '1px solid white'
-                                                    }} title={voter?.name}>
-                                                        {voter?.avatar || '👤'}
-                                                    </div>
-                                                );
-                                            })}
-                                    </div>
-                                )}
-                            </button>
                         </div>
-                        {hasVoted && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}
+                        {hasVoted && !isKicked && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}
+                        {isKicked && <p style={{ textAlign: 'center', marginTop: '10px', color: 'var(--accent-secondary)' }}>👻 Vota para asustar a los vivos (Click en su nombre)</p>}
+
+
                     </div>
                 ) : (
                     // Back: Conversation History
@@ -410,38 +542,82 @@ export const GameCanvas: React.FC<Props> = ({
                             </button>
                         </div>
 
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {gameState.inputs.map((input, idx) => {
-                                const p = gameState.players.find(pl => pl.name === input.playerName);
-                                return (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            padding: '12px',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            borderRadius: '12px',
-                                            borderLeft: `4px solid ${p?.color || 'transparent'}`,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px'
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: '32px', height: '32px', borderRadius: '50%',
-                                            background: p?.color || 'gray',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '18px',
-                                            flexShrink: 0
-                                        }}>
-                                            {p?.avatar || '👤'}
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {sortedRounds.length > 0 ? (
+                                sortedRounds.map(roundNum => {
+                                    const isCurrentRound = roundNum === gameState.round;
+                                    // In Voting/History, gameState.round is still the "just finished" round usually, 
+                                    // or checking against expandedRound is enough.
+                                    const isExpanded = roundNum === expandedRound;
+                                    const roundInputs = groupedInputs[roundNum];
+
+                                    return (
+                                        <div key={roundNum} className="glass-panel" style={{ padding: '0', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                                            <button
+                                                onClick={() => toggleRound(roundNum)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px',
+                                                    background: isCurrentRound ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.05)',
+                                                    border: 'none',
+                                                    borderBottom: isExpanded ? '1px solid var(--glass-border)' : 'none',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    color: isCurrentRound ? 'var(--accent-secondary)' : 'var(--text-primary)',
+                                                    cursor: 'pointer',
+                                                    outline: 'none',
+                                                    boxShadow: 'none',
+                                                    WebkitTapHighlightColor: 'transparent'
+                                                }}
+                                            >
+                                                <span style={{ fontWeight: 'bold' }}>
+                                                    {isCurrentRound ? `Ronda Actual (${roundNum})` : `Ronda ${roundNum}`}
+                                                </span>
+                                                <span>{isExpanded ? '▲' : '▼'}</span>
+                                            </button>
+
+                                            {isExpanded && (
+                                                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {roundInputs.slice().reverse().map((input, idx) => {
+                                                        const p = gameState.players.find(pl => pl.name === input.playerName);
+                                                        return (
+                                                            <div
+                                                                key={idx}
+                                                                style={{
+                                                                    padding: '12px',
+                                                                    background: 'rgba(255,255,255,0.05)',
+                                                                    borderRadius: '12px',
+                                                                    borderLeft: `4px solid ${p?.color || 'transparent'}`,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '12px'
+                                                                }}
+                                                            >
+                                                                <div style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                    background: p?.color || 'gray',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    fontSize: '18px',
+                                                                    flexShrink: 0
+                                                                }}>
+                                                                    {p?.avatar || '👤'}
+                                                                </div>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '4px' }}>{input.playerName}</div>
+                                                                    <div style={{ fontWeight: 'bold' }}>{input.term}</div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '4px' }}>{input.playerName}</div>
-                                            <div style={{ fontWeight: 'bold' }}>{input.term}</div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })
+                            ) : (
+                                <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>No hay historial aún.</p>
+                            )}
                         </div>
                     </div>
                 )}
@@ -459,6 +635,14 @@ export const GameCanvas: React.FC<Props> = ({
 
     return (
         <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px', position: 'relative' }}>
+            {/* Floating Emojis Layer */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 100 }}>
+                {floatingEmojis.map(item => (
+                    <div key={item.id} className="floating-emoji" style={{ left: `${item.left}%`, bottom: '10%' }}>
+                        {item.emoji}
+                    </div>
+                ))}
+            </div>
             <Header title="RONDA" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
             {/* Top Header with Secure Buttons */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -520,8 +704,22 @@ export const GameCanvas: React.FC<Props> = ({
             </div>
 
             {isKicked && (
-                <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--error)' }}>
-                    👻 Has sido expulsado (Espectador)
+                <div style={{
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    padding: '10px',
+                    borderRadius: '12px',
+                    textAlign: 'center',
+                    border: '1px solid var(--accent-secondary)',
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)' }}>👻 MODO FANTASMA 👻</div>
+                    <div className="ghost-toolbar">
+                        {GHOST_EMOJIS.map(emoji => (
+                            <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -567,35 +765,77 @@ export const GameCanvas: React.FC<Props> = ({
             )}
 
             {/* Feed */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {gameState.inputs.slice().reverse().map((input, i) => {
-                    const p = gameState.players.find(pl => pl.name === input.playerName);
-                    return (
-                        <div key={i} className="animate-fade-in" style={{
-                            display: 'flex',
-                            gap: '12px',
-                            alignItems: 'center',
-                            padding: '12px',
-                            background: 'rgba(255,255,255,0.03)',
-                            borderRadius: '12px',
-                            borderLeft: `4px solid ${p?.color || 'transparent'}`
-                        }}>
-                            <div style={{
-                                width: '36px', height: '36px', borderRadius: '50%',
-                                background: p?.color || 'gray',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '20px', flexShrink: 0
-                            }}>
-                                {p?.avatar || '👤'}
+            {/* Feed */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {sortedRounds.length > 0 ? (
+                    sortedRounds.map(roundNum => {
+                        const isCurrentRound = roundNum === gameState.round;
+                        const isExpanded = roundNum === expandedRound;
+                        const roundInputs = groupedInputs[roundNum];
+
+                        return (
+                            <div key={roundNum} className="glass-panel" style={{ padding: '0', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                                {/* Round Header */}
+                                <button
+                                    onClick={() => toggleRound(roundNum)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: isCurrentRound ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.05)',
+                                        border: 'none',
+                                        borderBottom: isExpanded ? '1px solid var(--glass-border)' : 'none',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        color: isCurrentRound ? 'var(--accent-secondary)' : 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        boxShadow: 'none',
+                                        WebkitTapHighlightColor: 'transparent'
+                                    }}
+                                >
+                                    <span style={{ fontWeight: 'bold' }}>
+                                        {isCurrentRound ? `Ronda Actual (${roundNum})` : `Ronda ${roundNum}`}
+                                    </span>
+                                    <span>{isExpanded ? '▲' : '▼'}</span>
+                                </button>
+
+                                {/* Round Inputs */}
+                                {isExpanded && (
+                                    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {roundInputs.slice().reverse().map((input, i) => {
+                                            const p = gameState.players.find(pl => pl.name === input.playerName);
+                                            return (
+                                                <div key={i} className="animate-fade-in" style={{
+                                                    display: 'flex',
+                                                    gap: '12px',
+                                                    alignItems: 'center',
+                                                    padding: '12px',
+                                                    background: 'rgba(255,255,255,0.03)',
+                                                    borderRadius: '12px',
+                                                    borderLeft: `4px solid ${p?.color || 'transparent'}`
+                                                }}>
+                                                    <div style={{
+                                                        width: '36px', height: '36px', borderRadius: '50%',
+                                                        background: p?.color || 'gray',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: '20px', flexShrink: 0
+                                                    }}>
+                                                        {p?.avatar || '👤'}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
-                            </div>
-                        </div>
-                    );
-                })}
-                {gameState.inputs.length === 0 && (
+                        );
+                    })
+                ) : (
                     <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>Esperando el primer término...</p>
                 )}
             </div>
