@@ -20,6 +20,11 @@ const io = new Server(httpServer, {
 // State
 const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word: string, impostorIndex: number, turnIndex: number, inputs: [] } }
 
+const getSafeRoomState = (room) => {
+    const { roundTimer, votingTimer, turnTimer, ...safeRoom } = room;
+    return safeRoom;
+};
+
 const generateCode = () => Math.random().toString(36).substring(2, 6).toUpperCase();
 
 // Turn timer removed for simultaneous writing
@@ -36,7 +41,7 @@ const startRoundTimer = (room, code, io) => {
     const duration = (room.settings.roundTimeLimit || 60) * 1000;
     room.roundExpiresAt = Date.now() + duration;
 
-    io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
+    io.to(code).emit('room_update', getSafeRoomState(room));
 
     room.roundTimer = setTimeout(() => {
         handleRoundTimeout(room, code, io);
@@ -82,7 +87,7 @@ const startVotingTimer = (room, code, io) => {
     const duration = (room.settings.votingTimeLimit || 30) * 1000;
     room.votingExpiresAt = Date.now() + duration;
 
-    io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
+    io.to(code).emit('room_update', getSafeRoomState(room));
 
     room.votingTimer = setTimeout(() => {
         handleVotingTimeout(room, code, io);
@@ -122,11 +127,11 @@ const processSubmission = (room, code, io, playerName, term, isAuto = false) => 
         room.votes = {};
         room.ghostVotes = {}; // Reset ghost votes for new voting round
         room.inputsInCurrentRound = 0;
-        io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
+        io.to(code).emit('room_update', getSafeRoomState(room));
         startVotingTimer(room, code, io);
     } else {
         // Just update state so others see "Waiting..."
-        io.to(code).emit('room_update', { ...room, turnTimer: undefined, roundTimer: undefined, votingTimer: undefined });
+        io.to(code).emit('room_update', getSafeRoomState(room));
     }
 };
 
@@ -174,7 +179,7 @@ io.on('connection', (socket) => {
         };
         socket.join(code);
         callback({ code });
-        io.to(code).emit('room_update', rooms[code]);
+        io.to(code).emit('room_update', getSafeRoomState(rooms[code]));
     });
 
     socket.on('join_room', (data, callback) => {
@@ -239,7 +244,7 @@ io.on('connection', (socket) => {
             }
 
             callback({ success: true });
-            io.to(data.code).emit('room_update', room);
+            io.to(data.code).emit('room_update', getSafeRoomState(room));
             return;
         }
 
@@ -257,7 +262,7 @@ io.on('connection', (socket) => {
         });
         socket.join(data.code);
         callback({ success: true });
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('set_difficulty', (data) => {
@@ -265,7 +270,7 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'lobby') return;
 
         room.difficulty = data.difficulty;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('set_category', (data) => {
@@ -273,7 +278,7 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'lobby') return;
 
         room.category = data.category;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('update_settings', (data) => {
@@ -281,7 +286,7 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'lobby') return;
 
         room.settings = { ...room.settings, ...data.settings };
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('start_game', (data) => {
@@ -333,7 +338,7 @@ io.on('connection', (socket) => {
         room.winner = null; // 'impostors' | 'civilians'
         room.inputsInCurrentRound = 0;
 
-        io.to(data.code).emit('game_started', room);
+        io.to(data.code).emit('game_started', getSafeRoomState(room));
         startRoundTimer(room, data.code, io);
     });
 
@@ -355,7 +360,7 @@ io.on('connection', (socket) => {
         if (voteCount >= activePlayers.length) {
             tallyVotes(room, data.code, io);
         } else {
-            io.to(data.code).emit('room_update', room);
+            io.to(data.code).emit('room_update', getSafeRoomState(room));
         }
     });
 
@@ -365,7 +370,7 @@ io.on('connection', (socket) => {
 
         // Transition to revealing state instead of immediate tally
         room.state = 'revealing';
-        io.to(code).emit('room_update', room);
+        io.to(code).emit('room_update', getSafeRoomState(room));
 
         // 5 seconds to reveal votes
         setTimeout(() => {
@@ -429,10 +434,10 @@ io.on('connection', (socket) => {
         if (room.state === 'playing') {
             // Simultaneous writing: just reset inputs for next round
             room.inputs = [];
-            io.to(code).emit('room_update', room);
+            io.to(code).emit('room_update', getSafeRoomState(room));
             startRoundTimer(room, code, io);
         } else {
-            io.to(code).emit('room_update', room);
+            io.to(code).emit('room_update', getSafeRoomState(room));
         }
     };
 
@@ -443,7 +448,7 @@ io.on('connection', (socket) => {
         if (!room.kickedIds.includes(socket.id)) return;
 
         room.ghostVotes[socket.id] = data.targetId;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('restart_game', (data) => {
@@ -464,7 +469,7 @@ io.on('connection', (socket) => {
         room.turnExpiresAt = null;
         room.roundExpiresAt = null;
         room.votingExpiresAt = null;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('ghost_action', (data) => {
@@ -502,7 +507,7 @@ io.on('connection', (socket) => {
                     if (!hasHost && room.players.length > 0) {
                         room.players[0].isHost = true;
                     }
-                    io.to(data.code).emit('room_update', room);
+                    io.to(data.code).emit('room_update', getSafeRoomState(room));
                 }
             }
         }
@@ -556,7 +561,7 @@ io.on('connection', (socket) => {
                     });
                 }
 
-                io.to(code).emit('room_update', room);
+                io.to(code).emit('room_update', getSafeRoomState(room));
 
                 // Clean up completely disconnected rooms after 5 minutes
                 setTimeout(() => {
