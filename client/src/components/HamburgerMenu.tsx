@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface Props {
     theme: 'dark' | 'light';
@@ -10,6 +11,13 @@ interface Props {
 export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, onCloseRoom }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const { installPrompt, installApp, isAppInstalled } = usePWAInstall();
+
+    // Simple iOS detection for showing the button even if no prompt (manual instructions)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    // Show install button if customizable prompt exists OR it's iOS and not already installed
+    const showInstallButton = (installPrompt || isIOS) && !isAppInstalled;
 
     return (
         <>
@@ -126,6 +134,35 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                             </svg>
                             <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>
                         </button>
+
+                        {/* Install PWA Button */}
+                        {showInstallButton && (
+                            <button
+                                onClick={() => {
+                                    installApp();
+                                    setMenuOpen(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    marginTop: '8px',
+                                    background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                                    animation: 'pulse 2s infinite'
+                                }}
+                            >
+                                <span>📲</span>
+                                <span>Instalar App</span>
+                            </button>
+                        )}
 
                         {/* Close Room (Host Only) */}
                         {isHost && onCloseRoom && (
