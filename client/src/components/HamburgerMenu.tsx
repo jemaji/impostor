@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Manual } from './Manual';
 
 interface Props {
     theme: 'dark' | 'light';
@@ -11,6 +12,7 @@ interface Props {
 export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, onCloseRoom }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const [showManual, setShowManual] = useState(false);
     const { installPrompt, installApp, isAppInstalled } = usePWAInstall();
 
     // Simple iOS detection for showing the button even if no prompt (manual instructions)
@@ -133,6 +135,32 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                                 )}
                             </svg>
                             <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>
+                        </button>
+
+                        {/* Manual Button */}
+                        <button
+                            onClick={() => {
+                                setMenuOpen(false);
+                                setShowManual(true);
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                marginTop: '8px',
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                border: '2px solid var(--glass-border)',
+                                borderRadius: '8px',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            <span style={{ fontSize: '1.2rem' }}>📖</span>
+                            <span>Manual de Juego</span>
                         </button>
 
                         {/* Install PWA Button */}
@@ -269,6 +297,10 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                         </div>
                     </div>
                 </div>
+            )}
+            {/* Manual Modal */}
+            {showManual && (
+                <Manual onClose={() => setShowManual(false)} />
             )}
         </>
     );
