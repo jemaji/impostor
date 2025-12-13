@@ -10,6 +10,7 @@ import './styles/index.css';
 
 interface Player {
   id: string;
+  userId: string;
   name: string;
   isHost: boolean;
   color?: string;
@@ -144,7 +145,21 @@ function App() {
       setGameState(currentRoom => {
         // Detect if someone was newly kicked to trigger animation
         if (currentRoom) {
-          const newKicks = room.kickedIds.filter(id => !currentRoom.kickedIds.includes(id));
+          const newKicks = room.kickedIds.filter(id => {
+            // Check if strict ID is new
+            if (currentRoom.kickedIds.includes(id)) return false;
+
+            // Check if USER (persistent ID) was already kicked (handles reconnection)
+            const player = room.players.find(p => p.id === id);
+            if (!player) return true;
+
+            const wasAlreadyKicked = currentRoom.kickedIds.some(oldKickedId => {
+              const oldPlayer = currentRoom.players.find(p => p.id === oldKickedId);
+              return oldPlayer && oldPlayer.userId === player.userId;
+            });
+
+            return !wasAlreadyKicked;
+          });
           if (newKicks.length > 0) {
             const kickedId = newKicks[0];
             const kickedPlayer = room.players.find(p => p.id === kickedId);
