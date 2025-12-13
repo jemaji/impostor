@@ -87,8 +87,8 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                 <button
                     className="btn-primary"
                     onClick={onStart}
-                    disabled={players.length < 3}
-                    style={{ opacity: players.length < 3 ? 0.5 : 1 }}
+                    disabled={players.length < 3 || (settings?.timer && (settings.timeLimit <= 0 || settings.timeLimit > 120))}
+                    style={{ opacity: (players.length < 3 || (settings?.timer && (settings.timeLimit <= 0 || settings.timeLimit > 120))) ? 0.5 : 1 }}
                 >
                     {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Comenzar Partida'}
                 </button>
@@ -326,21 +326,15 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                                         value={settings.timeLimit}
                                         onChange={(e) => {
                                             const val = Number(e.target.value);
-                                            if (e.target.value === '' || val <= 0) {
-                                                // Allow empty temporarily or block 0? User said "can't put 0 or empty".
-                                                // If I block empty, typing is hard. I'll block commit?
-                                                // Since it's direct state update:
-                                                if (val > 0) onUpdateSettings({ timeLimit: val });
-                                            } else {
-                                                onUpdateSettings({ timeLimit: val });
-                                            }
+                                            onUpdateSettings({ timeLimit: val });
                                         }}
                                         style={{
                                             width: '60px', padding: '4px', borderRadius: '4px',
-                                            border: '1px solid var(--text-secondary)',
+                                            border: (settings.timeLimit <= 0 || settings.timeLimit > 120) ? '2px solid var(--error)' : '1px solid var(--text-secondary)',
                                             background: 'transparent',
                                             color: theme === 'light' ? 'black' : 'white',
-                                            textAlign: 'center'
+                                            textAlign: 'center',
+                                            outline: 'none'
                                         }}
                                     />
                                 ) : (
