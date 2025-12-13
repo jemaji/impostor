@@ -92,6 +92,7 @@ interface GameState {
     winner: 'civilians' | 'impostors' | null;
     paused?: boolean;
     pauseReason?: string;
+    currentPunishment?: string | null;
 }
 
 interface Props {
@@ -250,6 +251,25 @@ export const GameCanvas: React.FC<Props> = ({
                             );
                         })}
                     </div>
+
+                    {gameState.currentPunishment && (
+                        <div style={{
+                            marginTop: '20px',
+                            padding: '16px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid var(--error)',
+                            borderRadius: '12px',
+                            maxWidth: '90%'
+                        }}>
+                            <h3 style={{ color: 'var(--error)', margin: '0 0 8px 0', fontSize: '1.2rem' }}>💀 CASTIGO 💀</h3>
+                            <p style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                {gameState.currentPunishment}
+                            </p>
+                            <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '8px' }}>
+                                (Opcional para los perdedores)
+                            </p>
+                        </div>
+                    )}
                     <p>Palabra secreta: <strong>{gameState.word}</strong></p>
                     <button className="btn-primary" onClick={onRestart}>Volver a la Sala</button>
                 </div>

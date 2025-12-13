@@ -8,8 +8,18 @@ interface Props {
     onToggleTheme: () => void;
 }
 
-const AVATARS = ['👽', '🤠', '🤖', '🎃', '👻', '🤡', '🦄', '🐶', '🐱', '🐭'];
-const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+const AVATARS = [
+    '👽', '🤠', '🤖', '🎃', '👻', '🤡', '🦄', '🐶', '🐱', '🐭',
+    '🦖', '🦊', '🦉', '🐵', '🐼', '🐨', '🐸', '🐙', '🦈', '🦋',
+    '🍄', '🌺', '🌈', '🍕', '🍔', '🍟', '🍦', '🍩', '🍪', '🍫',
+    '🎸', '🎷', '🥁', '⚽', '🏀', '🏈', '🎾', '🎳', '🎮', '🎲'
+];
+const COLORS = [
+    '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+    '#64748b', '#78716c', '#ef4444', '#dc2626', '#ea580c', '#c2410c', '#ca8a04', '#65a30d',
+    '#16a34a', '#059669', '#0d9488', '#0891b2', '#0284c7', '#2563eb', '#4f46e5', '#7c3aed',
+    '#9333ea', '#c026d3', '#db2777', '#e11d48', '#be123c', '#9f1239', '#881337', '#4c0519'
+];
 
 export const CreateJoin: React.FC<Props> = ({ onCreate, onJoin, theme, onToggleTheme }) => {
     const [name, setName] = useState(() => localStorage.getItem('impostor_name') || '');
@@ -94,7 +104,7 @@ export const CreateJoin: React.FC<Props> = ({ onCreate, onJoin, theme, onToggleT
                 {/* Avatar & Color Selection */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'left' }}>Elige tu Avatar</label>
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
                         {AVATARS.map(emoji => (
                             <button
                                 key={emoji}
@@ -123,10 +133,10 @@ export const CreateJoin: React.FC<Props> = ({ onCreate, onJoin, theme, onToggleT
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'left' }}>Elige tu Color</label>
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                        {COLORS.map(c => (
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {COLORS.map((c, i) => (
                             <button
-                                key={c}
+                                key={`${c}-${i}`}
                                 onClick={() => setColor(c)}
                                 style={{
                                     width: '32px',

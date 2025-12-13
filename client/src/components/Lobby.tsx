@@ -324,9 +324,8 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                                     <input
                                         type="number"
                                         min="5"
-                                        max="60"
                                         value={settings.timeLimit}
-                                        onChange={(e) => onUpdateSettings({ timeLimit: Math.max(5, Math.min(60, Number(e.target.value))) })}
+                                        onChange={(e) => onUpdateSettings({ timeLimit: Math.max(5, Number(e.target.value)) })}
                                         style={{
                                             width: '60px', padding: '4px', borderRadius: '4px',
                                             border: '1px solid var(--text-secondary)',
@@ -340,16 +339,35 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                                 )}
                             </div>
 
-                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: isHost ? 'pointer' : 'default' }}>
-                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>😈 Modo Castigo</span>
-                                <input
-                                    type="checkbox"
-                                    checked={settings.punishment || false}
-                                    onChange={(e) => isHost && onUpdateSettings({ punishment: e.target.checked })}
-                                    disabled={!isHost}
-                                />
-                            </label>
+
+
                         </div>
+                    )}
+                </div>
+
+                {/* Punishment Settings (Stand-alone if timer is off? No, user said: "si hay temporizador se castigará con la logica actual... si no hay temporizador se castigará en el gameover, siempre que esté marcada la opción") */}
+                {/* Wait, currently it is INSIDE the timer block. I need to move it OUT. */}
+
+                <div style={{
+                    marginTop: '10px',
+                    paddingTop: '10px',
+                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
+                }}>
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', cursor: isHost ? 'pointer' : 'default' }}>
+                        <span style={{ color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>😈 Castigos</span>
+                        <input
+                            type="checkbox"
+                            checked={settings?.punishment || false}
+                            onChange={(e) => isHost && onUpdateSettings({ punishment: e.target.checked })}
+                            disabled={!isHost}
+                            style={{ transform: 'scale(1.2)' }}
+                        />
+                    </label>
+                    {settings?.punishment && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '-5px', marginBottom: '10px' }}>
+                            Se asignará un castigo al perdedor.
+                            {settings?.timer && " También si se agota el tiempo."}
+                        </p>
                     )}
                 </div>
             </div>
