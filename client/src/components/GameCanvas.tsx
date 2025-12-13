@@ -87,6 +87,7 @@ interface GameState {
     round: number;
     inputs: { playerName: string, term: string, round?: number }[];
     votes: Record<string, string>;
+    ghostVotes?: Record<string, string>;
     kickedIds: string[];
     winner: 'civilians' | 'impostors' | null;
     paused?: boolean;
@@ -301,56 +302,108 @@ export const GameCanvas: React.FC<Props> = ({
                         <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: '20px' }}>{getVoteStatus()}</p>
 
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => (
+                            {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => {
+                                // Count ghost votes for this player
+                                const ghostVoteCount = Object.values(gameState.ghostVotes || {}).filter(targetId => targetId === p.id).length;
+                                const myGhostVote = gameState.ghostVotes?.[myId];
+                                const isMyGhostTarget = myGhostVote === p.id;
+
+                                return (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => {
+                                            if (isKicked) {
+                                                // Ghost Vote
+                                                socket.emit('ghost_vote', { code: gameState.code, targetId: p.id });
+                                                audioManager.play('pop');
+                                            } else if (!hasVoted) {
+                                                onVote(p.id);
+                                            }
+                                        }}
+                                        disabled={!isKicked && !!hasVoted}
+                                        style={{
+                                            padding: '12px',
+                                            background: (!isKicked && gameState.votes[myId] === p.id) || (isKicked && isMyGhostTarget) ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                                            border: (isKicked && isMyGhostTarget) ? '2px solid white' : '1px solid var(--glass-border)',
+                                            borderRadius: '12px',
+                                            textAlign: 'left',
+                                            color: 'var(--text-primary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            justifyContent: 'flex-start',
+                                            opacity: (!isKicked && hasVoted && gameState.votes[myId] !== p.id) ? 0.5 : 1,
+                                            cursor: (isKicked || (!hasVoted)) ? 'pointer' : 'default',
+                                            position: 'relative',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '32px', height: '32px', borderRadius: '50%',
+                                            background: p.color || 'gray',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '18px'
+                                        }}>
+                                            {p.avatar || '👤'}
+                                        </div>
+                                        <span style={{ flex: 1 }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+
+                                        {/* Ghost Votes Display */}
+                                        <div style={{ display: 'flex', gap: '2px' }}>
+                                            {Array.from({ length: ghostVoteCount }).map((_, i) => (
+                                                <span key={i} className="animate-pop" style={{ fontSize: '1.2rem', animationDelay: `${i * 0.1}s` }}>👻</span>
+                                            ))}
+                                        </div>
+                                    </button>
+                                )
+                            })}
+
+
+                            {/* Skip Button - Only for alive players */}
+                            {!isKicked && (
                                 <button
-                                    key={p.id}
-                                    onClick={() => !hasVoted && !isKicked && onVote(p.id)}
-                                    disabled={!!hasVoted || isKicked}
+                                    onClick={() => !hasVoted && onVote('skip')}
+                                    disabled={!!hasVoted}
                                     style={{
+                                        marginTop: '10px',
                                         padding: '12px',
-                                        background: gameState.votes[myId] === p.id ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
-                                        border: '1px solid var(--glass-border)',
+                                        background: 'rgba(139, 92, 246, 0.15)',
+                                        border: '2px solid var(--glass-border)',
                                         borderRadius: '12px',
-                                        textAlign: 'left',
-                                        color: 'var(--text-primary)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        justifyContent: 'flex-start',
-                                        opacity: (hasVoted || isKicked) && gameState.votes[myId] !== p.id ? 0.5 : 1
+                                        color: 'var(--text-secondary)',
+                                        opacity: hasVoted ? 0.5 : 1,
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                                     }}
                                 >
-                                    <div style={{
-                                        width: '32px', height: '32px', borderRadius: '50%',
-                                        background: p.color || 'gray',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '18px'
-                                    }}>
-                                        {p.avatar || '👤'}
-                                    </div>
-                                    <span style={{ flex: 1 }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+                                    Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}
                                 </button>
-                            ))}
+                            )}
 
-                            <button
-                                onClick={() => !hasVoted && !isKicked && onVote('skip')}
-                                disabled={!!hasVoted || isKicked}
-                                style={{
-                                    marginTop: '10px',
-                                    padding: '12px',
-                                    background: 'rgba(139, 92, 246, 0.15)',
-                                    border: '2px solid var(--glass-border)',
-                                    borderRadius: '12px',
-                                    color: 'var(--text-secondary)',
-                                    opacity: hasVoted || isKicked ? 0.5 : 1,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }}
-                            >
-                                Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}
-                            </button>
                         </div>
-                        {hasVoted && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}
+                        {hasVoted && !isKicked && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}
+                        {isKicked && <p style={{ textAlign: 'center', marginTop: '10px', color: 'var(--accent-secondary)' }}>👻 Vota para asustar a los vivos (Click en su nombre)</p>}
+
+                        {isKicked && (
+                            <div style={{
+                                marginTop: '10px',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                padding: '10px',
+                                borderRadius: '12px',
+                                textAlign: 'center',
+                                border: '1px solid var(--accent-secondary)',
+                                backdropFilter: 'blur(4px)'
+                            }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)', fontSize: '0.9rem' }}>REACCIONES</div>
+                                <div className="ghost-toolbar" style={{ justifyContent: 'center' }}>
+                                    {GHOST_EMOJIS.map(emoji => (
+                                        <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     // Back: Conversation History

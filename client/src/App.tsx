@@ -29,6 +29,7 @@ interface GameState {
   turnIndex: number;
   inputs: { playerName: string, term: string }[];
   votes: Record<string, string>;
+  ghostVotes?: Record<string, string>;
   kickedIds: string[];
   winner: 'civilians' | 'impostors' | null;
   paused?: boolean;

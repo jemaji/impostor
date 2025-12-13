@@ -81,6 +81,7 @@ const processSubmission = (room, code, io, playerName, term, isAuto = false) => 
     if (room.inputsInCurrentRound >= activePlayers.length) {
         room.state = 'voting';
         room.votes = {};
+        room.ghostVotes = {}; // Reset ghost votes for new voting round
         room.inputsInCurrentRound = 0;
         io.to(code).emit('room_update', { ...room, turnTimer: undefined });
     } else {
@@ -117,6 +118,7 @@ io.on('connection', (socket) => {
             inputs: [], // { playerName: string, term: string }
             kickedIds: [],
             votes: {},
+            ghostVotes: {},
             winner: null,
             inputsInCurrentRound: 0,
             settings: {
@@ -165,6 +167,16 @@ io.on('connection', (socket) => {
                 newVotes[newVoterId] = newTargetId;
             }
             room.votes = newVotes;
+
+            // 4. Ghost Votes
+            const newGhostVotes = {};
+            for (const voterId in room.ghostVotes) {
+                const targetId = room.ghostVotes[voterId];
+                const newVoterId = voterId === oldSocketId ? socket.id : voterId;
+                const newTargetId = targetId === oldSocketId ? socket.id : targetId;
+                newGhostVotes[newVoterId] = newTargetId;
+            }
+            room.ghostVotes = newGhostVotes;
 
             // Update metadata if provided
             if (data.name) existingPlayer.name = data.name;
@@ -272,6 +284,7 @@ io.on('connection', (socket) => {
         room.round = 1;
         room.inputs = [];
         room.votes = {}; // { [voterId]:  targetId | 'skip' }
+        room.ghostVotes = {};
         room.kickedIds = []; // Array of ids
         room.winner = null; // 'impostors' | 'civilians'
         room.inputsInCurrentRound = 0;
@@ -358,12 +371,23 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('ghost_vote', (data) => {
+        const room = rooms[data.code];
+        if (!room || room.state !== 'voting') return;
+        // Verify sender is a ghost (kicked player)
+        if (!room.kickedIds.includes(socket.id)) return;
+
+        room.ghostVotes[socket.id] = data.targetId;
+        io.to(data.code).emit('room_update', room);
+    });
+
     socket.on('restart_game', (data) => {
         const room = rooms[data.code];
         if (!room) return;
         room.state = 'lobby';
         room.inputs = [];
         room.votes = {};
+        room.ghostVotes = {};
         room.kickedIds = [];
         room.winner = null;
         room.impostorIds = [];
