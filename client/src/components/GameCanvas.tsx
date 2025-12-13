@@ -319,7 +319,8 @@ export const GameCanvas: React.FC<Props> = ({
                                 border: '1px solid var(--accent-secondary)',
                                 backdropFilter: 'blur(4px)'
                             }}>
-                                <div className="ghost-toolbar" style={{ justifyContent: 'center' }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)' }}>👻 MODO FANTASMA 👻</div>
+                                <div className="ghost-toolbar">
                                     {GHOST_EMOJIS.map(emoji => (
                                         <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
                                             {emoji}
