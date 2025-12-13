@@ -36,7 +36,7 @@ El juego divide a los jugadores en dos bandos secretos:
 
 - Al final de la ronda, se abre el debate. ¡Acusad, defended y mentid!
 - Vota a quien creas que es el Impostor.
-- El jugador con más votos es **Expulsado** (Ejeccutado).
+- El jugador con más votos es **Expulsado** (Ejecutado).
   - Si es el Impostor: **¡Ganan los Civiles!** 🎉
   - Si es un Civil: El juego continúa con una nueva ronda (y el civil expulsado se convierte en Fantasma).
 
