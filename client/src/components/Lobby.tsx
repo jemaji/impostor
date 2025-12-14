@@ -1,5 +1,14 @@
 import React from 'react';
 import { Header } from './Header';
+import {
+    DEFAULT_ROUND_TIME,
+    DEFAULT_VOTING_TIME,
+    MIN_ROUND_TIME,
+    MAX_ROUND_TIME,
+    MIN_VOTING_TIME,
+    MAX_VOTING_TIME,
+    SWIPE_THRESHOLD
+} from '../constants';
 
 interface Player {
     id: string;
@@ -57,7 +66,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
 
-        if (Math.abs(diff) > 50 && isHost) {
+        if (Math.abs(diff) > SWIPE_THRESHOLD && isHost) {
             if (diff > 0) onDifficultyChange('hard');
             else onDifficultyChange('normal');
         }
@@ -328,10 +337,10 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                             {isHost ? (
                                 <input
                                     type="number"
-                                    min="30"
-                                    max="300"
-                                    value={settings.roundTimeLimit || 60}
-                                    onChange={(e) => onUpdateSettings({ roundTimeLimit: Math.max(30, Math.min(300, Number(e.target.value))) })}
+                                    min={MIN_ROUND_TIME}
+                                    max={MAX_ROUND_TIME}
+                                    value={settings.roundTimeLimit || DEFAULT_ROUND_TIME}
+                                    onChange={(e) => onUpdateSettings({ roundTimeLimit: Math.max(MIN_ROUND_TIME, Math.min(MAX_ROUND_TIME, Number(e.target.value))) })}
                                     style={{
                                         width: '60px', padding: '4px', borderRadius: '4px',
                                         border: '1px solid var(--text-secondary)',
@@ -341,7 +350,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                                     }}
                                 />
                             ) : (
-                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.roundTimeLimit || 60}s</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.roundTimeLimit || DEFAULT_ROUND_TIME}s</span>
                             )}
                         </div>
                     )}
@@ -393,10 +402,10 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                             {isHost ? (
                                 <input
                                     type="number"
-                                    min="10"
-                                    max="120"
-                                    value={settings.votingTimeLimit || 30}
-                                    onChange={(e) => onUpdateSettings({ votingTimeLimit: Math.max(10, Math.min(120, Number(e.target.value))) })}
+                                    min={MIN_VOTING_TIME}
+                                    max={MAX_VOTING_TIME}
+                                    value={settings.votingTimeLimit || DEFAULT_VOTING_TIME}
+                                    onChange={(e) => onUpdateSettings({ votingTimeLimit: Math.max(MIN_VOTING_TIME, Math.min(MAX_VOTING_TIME, Number(e.target.value))) })}
                                     style={{
                                         width: '60px', padding: '4px', borderRadius: '4px',
                                         border: '1px solid var(--text-secondary)',
@@ -406,7 +415,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                                     }}
                                 />
                             ) : (
-                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.votingTimeLimit || 30}s</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.votingTimeLimit || DEFAULT_VOTING_TIME}s</span>
                             )}
                         </div>
                     )}
