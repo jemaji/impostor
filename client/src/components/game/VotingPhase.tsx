@@ -1,5 +1,5 @@
 import React from 'react';
-import { GameState, Input } from '../../types/game';
+import type { GameState, Input } from '../../types/game';
 import { Header } from '../Header';
 import { CircleTimer } from './CircleTimer';
 import { GhostToolbar } from './GhostToolbar';
@@ -15,7 +15,7 @@ interface VotingPhaseProps {
     isHost: boolean;
     theme: 'dark' | 'light';
     votingTimerEnabled: boolean;
-    votingExpiresAt: number | null;
+    votingExpiresAt?: number | null;
     votingTotalTime: number;
     groupedInputs: Record<number, Input[]>;
     sortedRounds: number[];
@@ -24,6 +24,7 @@ interface VotingPhaseProps {
     onVote: (targetId: string) => void;
     onToggleTheme: () => void;
     onCloseRoom: () => void;
+    onRestart?: () => void;
 }
 
 export const VotingPhase: React.FC<VotingPhaseProps> = ({
@@ -41,7 +42,8 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
     onToggleRound,
     onVote,
     onToggleTheme,
-    onCloseRoom
+    onCloseRoom,
+    onRestart
 }) => {
     const hasVoted = gameState.votes[myId];
 
@@ -65,7 +67,7 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
         >
             <FloatingEmojis />
 
-            <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+            <Header title="VOTACION" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} onRestart={onRestart} />
 
             {gameState.state === 'voting' && votingTimerEnabled && votingExpiresAt && (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>

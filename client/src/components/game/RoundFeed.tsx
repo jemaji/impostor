@@ -1,5 +1,5 @@
 import React from 'react';
-import { GameState, Input } from '../../types/game';
+import type { GameState, Input } from '../../types/game';
 
 interface RoundFeedProps {
     gameState: GameState;

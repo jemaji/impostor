@@ -1,6 +1,6 @@
 import React from 'react';
 import { Header } from '../Header';
-import { GameState } from '../../types/game';
+import type { GameState } from '../../types/game';
 
 interface GameOverProps {
     gameState: GameState;
@@ -21,7 +21,7 @@ export const GameOver: React.FC<GameOverProps> = ({
 }) => {
     return (
         <div className="glass-panel animate-fade-in" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '20px' }}>
-            <Header title="GAME OVER" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+            <Header title="GAME OVER" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} onRestart={onRestart} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '20px' }}>
                 <h1 style={{ fontSize: '3rem', margin: 0 }}>
                     {gameState.winner === 'civilians' ? '🎉 CIVILES GANAN' : '😈 IMPOSTORES GANAN'}

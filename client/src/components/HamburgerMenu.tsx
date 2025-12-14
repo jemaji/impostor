@@ -7,11 +7,12 @@ interface Props {
     isHost?: boolean;
     onToggleTheme: () => void;
     onCloseRoom?: () => void;
+    onRestart?: () => void;
 }
 
-export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, onCloseRoom }) => {
+export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, onCloseRoom, onRestart }) => {
     const [menuOpen, setMenuOpen] = useState(false);
-    const [showModal, setShowModal] = useState(false);
+    const [modalAction, setModalAction] = useState<'close' | 'restart' | null>(null);
     const [showManual, setShowManual] = useState(false);
     const { installPrompt, installApp, isAppInstalled } = usePWAInstall();
 
@@ -192,16 +193,53 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                             </button>
                         )}
 
-                        {/* Close Room (Host Only) */}
-                        {isHost && onCloseRoom && (
+                        {/* Return to Lobby (Host Only) */}
+                        {isHost && onRestart && (
                             <button
                                 onClick={() => {
-                                    setMenuOpen(false); // Close menu first
-                                    setShowModal(true); // Open custom modal
+                                    setMenuOpen(false);
+                                    setModalAction('restart');
                                 }}
                                 style={{
                                     width: '100%',
                                     padding: '12px',
+                                    marginTop: '8px',
+                                    background: 'rgba(255, 193, 7, 0.2)', // Yellowish for warning but not danger
+                                    border: '2px solid rgba(255, 193, 7, 0.5)',
+                                    borderRadius: '8px',
+                                    color: 'var(--text-primary)', // Better contrast than yellow text
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 193, 7, 0.3)';
+                                    e.currentTarget.style.transform = 'translateX(-2px)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 193, 7, 0.2)';
+                                    e.currentTarget.style.transform = 'translateX(0)';
+                                }}
+                            >
+                                <span>↩️</span>
+                                <span>Volver al Lobby</span>
+                            </button>
+                        )}
+
+                        {/* Close/Leave Room */}
+                        {onCloseRoom && (
+                            <button
+                                onClick={() => {
+                                    setMenuOpen(false); // Close menu first
+                                    setModalAction('close'); // Open closure modal
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    marginTop: '8px',
                                     background: 'rgba(239, 68, 68, 0.2)',
                                     border: '2px solid rgba(239, 68, 68, 0.5)',
                                     borderRadius: '8px',
@@ -223,14 +261,14 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                                 }}
                             >
                                 <span>🚪</span>
-                                <span>Cerrar Sala</span>
+                                <span>{isHost ? 'Cerrar Sala' : 'Salir de la Sala'}</span>
                             </button>
                         )}
                     </div>
                 </>
             )}
             {/* Confirmation Modal */}
-            {showModal && (
+            {modalAction && (
                 <div style={{
                     position: 'fixed',
                     top: 0,
@@ -256,11 +294,19 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                         boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                         color: 'var(--text-primary)'
                     }}>
-                        <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '1.4rem' }}>⚠️ Cerrar Sala</h3>
-                        <p style={{ marginBottom: '24px', opacity: 0.8 }}>¿Estás seguro de que quieres cerrar la sala para todos?</p>
+                        <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '1.4rem' }}>
+                            {modalAction === 'restart' ? '↩️ Volver al Lobby' : (isHost ? '⚠️ Cerrar Sala' : '🚪 Salir de la Sala')}
+                        </h3>
+                        <p style={{ marginBottom: '24px', opacity: 0.8 }}>
+                            {modalAction === 'restart'
+                                ? '¿Estás seguro? Esto terminará la partida actual y volverá a todos al lobby.'
+                                : (isHost
+                                    ? '¿Estás seguro de que quieres cerrar la sala para todos?'
+                                    : '¿Estás seguro de que quieres salir de la partida?')}
+                        </p>
                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                             <button
-                                onClick={() => setShowModal(false)}
+                                onClick={() => setModalAction(null)}
                                 style={{
                                     padding: '10px 20px',
                                     borderRadius: '8px',
@@ -276,20 +322,21 @@ export const HamburgerMenu: React.FC<Props> = ({ theme, isHost, onToggleTheme, o
                             </button>
                             <button
                                 onClick={() => {
-                                    if (onCloseRoom) onCloseRoom();
-                                    setShowModal(false);
+                                    if (modalAction === 'restart' && onRestart) onRestart();
+                                    if (modalAction === 'close' && onCloseRoom) onCloseRoom();
+                                    setModalAction(null);
                                     setMenuOpen(false);
                                 }}
                                 style={{
                                     padding: '10px 20px',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    background: 'var(--error)',
-                                    color: 'white',
+                                    background: modalAction === 'restart' ? 'var(--warning)' : 'var(--error)',
+                                    color: modalAction === 'restart' ? 'black' : 'white',
                                     cursor: 'pointer',
                                     fontSize: '1rem',
                                     fontWeight: 'bold',
-                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                                    boxShadow: modalAction === 'restart' ? '0 4px 12px rgba(255, 193, 7, 0.4)' : '0 4px 12px rgba(239, 68, 68, 0.4)'
                                 }}
                             >
                                 Confirmar

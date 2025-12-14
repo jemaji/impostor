@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GameState, Input } from '../../types/game';
+import type { GameState, Input } from '../../types/game';
 import { Header } from '../Header';
 import { CircleTimer } from './CircleTimer';
 import { GhostToolbar } from './GhostToolbar';
@@ -14,7 +14,7 @@ interface PlayingPhaseProps {
     isHost: boolean;
     theme: 'dark' | 'light';
     roundTimerEnabled: boolean;
-    roundExpiresAt: number | null;
+    roundExpiresAt?: number | null;
     roundTotalTime: number;
     groupedInputs: Record<number, Input[]>;
     sortedRounds: number[];
@@ -23,10 +23,12 @@ interface PlayingPhaseProps {
     onSubmit: (term: string) => void;
     onToggleTheme: () => void;
     onCloseRoom: () => void;
+    onRestart?: () => void;
 }
 
 export const PlayingPhase: React.FC<PlayingPhaseProps> = ({
     gameState,
+    myId,
     myRole,
     isKicked,
     isHost,
@@ -40,13 +42,16 @@ export const PlayingPhase: React.FC<PlayingPhaseProps> = ({
     onToggleRound,
     onSubmit,
     onToggleTheme,
-    onCloseRoom
+    onCloseRoom,
+    onRestart
 }) => {
     const [term, setTerm] = useState('');
     const [holdingRole, setHoldingRole] = useState(false);
     const [holdingWord, setHoldingWord] = useState(false);
 
-    const hasSubmitted = gameState.inputs.some(i => i.playerName === gameState.players.find(p => p.id === myId)?.name ?? '' && i.round === gameState.round);
+    const myPlayer = gameState.players.find(p => p.id === myId);
+    const myName = myPlayer?.name ?? '';
+    const hasSubmitted = gameState.inputs.some(i => i.playerName === myName && i.round === gameState.round);
 
     // Handlers
     const handleTouchStartRole = () => setHoldingRole(true);
@@ -67,7 +72,7 @@ export const PlayingPhase: React.FC<PlayingPhaseProps> = ({
         <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px', position: 'relative' }}>
             <FloatingEmojis />
 
-            <Header title="RONDA" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+            <Header title="RONDA" theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} onRestart={onRestart} />
 
             {/* Top Header with Secure Buttons */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
