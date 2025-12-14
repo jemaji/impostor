@@ -457,7 +457,16 @@ function App() {
 
       {
         !gameState ? (
-          <CreateJoin onCreate={handleCreate} onJoin={handleJoin} theme={theme} onToggleTheme={toggleTheme} />
+          <CreateJoin
+            onCreate={handleCreate}
+            onJoin={handleJoin}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            initialCode={(() => {
+              const match = window.location.pathname.match(/^\/join-room\/([a-zA-Z0-9]+)/);
+              return match ? match[1].toUpperCase() : undefined;
+            })()}
+          />
         ) : (
           <>
             {ejectionData && (

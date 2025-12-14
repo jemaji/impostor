@@ -6,6 +6,7 @@ interface Props {
     onJoin: (name: string, code: string, color: string, avatar: string) => void;
     theme: 'dark' | 'light';
     onToggleTheme: () => void;
+    initialCode?: string;
 }
 
 const AVATARS = [
@@ -21,10 +22,10 @@ const COLORS = [
     '#9333ea', '#c026d3', '#db2777', '#e11d48', '#be123c', '#9f1239', '#881337', '#4c0519'
 ];
 
-export const CreateJoin: React.FC<Props> = ({ onCreate, onJoin, theme, onToggleTheme }) => {
+export const CreateJoin: React.FC<Props> = ({ onCreate, onJoin, theme, onToggleTheme, initialCode }) => {
     const [name, setName] = useState(() => localStorage.getItem('impostor_name') || '');
-    const [code, setCode] = useState('');
-    const [mode, setMode] = useState<'create' | 'join'>('create');
+    const [code, setCode] = useState(initialCode || '');
+    const [mode, setMode] = useState<'create' | 'join'>(initialCode ? 'join' : 'create');
     const [color, setColor] = useState(() => localStorage.getItem('impostor_color') || COLORS[Math.floor(Math.random() * COLORS.length)]);
     const [avatar, setAvatar] = useState(() => localStorage.getItem('impostor_avatar') || AVATARS[Math.floor(Math.random() * AVATARS.length)]);
 

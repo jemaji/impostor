@@ -54,10 +54,6 @@ const CATEGORIES = [
 export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, category, theme, onStart, onLeave, onDifficultyChange, onCategoryChange, onToggleTheme, settings, onUpdateSettings }) => {
     const [touchStartX, setTouchStartX] = React.useState(0);
 
-    const copyCode = () => {
-        navigator.clipboard.writeText(roomCode);
-    };
-
     const handleDifficultyTouchStart = (e: React.TouchEvent) => {
         setTouchStartX(e.touches[0].clientX);
     };
@@ -79,7 +75,26 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
             {/* Room Code */}
             <div style={{ textAlign: 'center' }}>
                 <div
-                    onClick={copyCode}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // Share logic similar to previous button
+                        const url = `${window.location.origin}/join-room/${roomCode}`;
+                        const shareData = {
+                            title: 'Impostor',
+                            text: `Averigua quien miente: ${url}`,
+                            url: url
+                        };
+                        try {
+                            if (navigator.share) {
+                                navigator.share(shareData);
+                            } else {
+                                navigator.clipboard.writeText(shareData.text);
+                                alert('Enlace copiado: ' + url);
+                            }
+                        } catch (err) {
+                            console.error('Error sharing:', err);
+                        }
+                    }}
                     style={{
                         fontSize: '3.5rem',
                         fontWeight: 900,
@@ -93,7 +108,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                 >
                     {roomCode}
                 </div>
-                <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '-5px' }}>Toca para copiar código</p>
+                <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '-5px', marginBottom: '10px' }}>haz click para compartir</p>
             </div>
             {/* Action Buttons (Host Start / Waiting) */}
             {isHost ? (
