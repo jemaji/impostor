@@ -23,12 +23,15 @@ const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word
 const getSafeRoomState = (room) => {
     const { roundTimer, votingTimer, ...safeRoom } = room;
 
-    // Secret Writing: Mask terms during 'playing' state
+    // Secret Writing: Mask terms ONLY for the CURRENT round during 'playing' state
     if (safeRoom.state === 'playing') {
-        safeRoom.inputs = safeRoom.inputs.map(i => ({
-            ...i,
-            term: '*****' // Masked
-        }));
+        safeRoom.inputs = safeRoom.inputs.map(i => {
+            // If input is from current round, mask it. Past rounds remain visible.
+            if (i.round === room.round) {
+                return { ...i, term: '*****' };
+            }
+            return i;
+        });
     }
 
     return safeRoom;
@@ -65,8 +68,9 @@ const handleRoundTimeout = (room, code, io) => {
 
     console.log(`Global Round Timeout for room ${code}`);
 
-    // Find players who haven't submitted yet
-    const submittedPlayerNames = room.inputs.map(i => i.playerName);
+    // Find players who haven't submitted FOR THE CURRENT ROUND
+    const currentRoundInputs = room.inputs.filter(i => i.round === room.round);
+    const submittedPlayerNames = currentRoundInputs.map(i => i.playerName);
     const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
 
     activePlayers.forEach(player => {
@@ -122,8 +126,9 @@ const processSubmission = (room, code, io, playerName, term, isAuto = false) => 
     // Simultaneous writing: no turn index update needed
 
     const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
-    // Count unique players who have submitted
-    const submittedPlayers = new Set(room.inputs.map(i => i.playerName));
+    // Count unique players who have submitted FOR THE CURRENT ROUND
+    const currentRoundInputs = room.inputs.filter(i => i.round === room.round);
+    const submittedPlayers = new Set(currentRoundInputs.map(i => i.playerName));
 
     if (submittedPlayers.size >= activePlayers.length) {
         if (room.roundTimer) clearTimeout(room.roundTimer);
@@ -437,8 +442,8 @@ io.on('connection', (socket) => {
         }
 
         if (room.state === 'playing') {
-            // Simultaneous writing: just reset inputs for next round
-            room.inputs = [];
+            // Simultaneous writing: DO NOT clear inputs, just persist history
+            // We do NOT clear: room.inputs = [];
             io.to(code).emit('room_update', getSafeRoomState(room));
             startRoundTimer(room, code, io);
         } else {
