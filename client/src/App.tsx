@@ -37,8 +37,7 @@ interface GameState {
   paused?: boolean;
   pauseReason?: string;
   settings?: {
-    timer: boolean;
-    timeLimit: number;
+
     punishment: boolean;
     customPunishment: string;
     roundTimer: boolean;
@@ -46,7 +45,7 @@ interface GameState {
     votingTimer: boolean;
     votingTimeLimit: number;
   };
-  turnExpiresAt?: number | null;
+
   roundExpiresAt?: number | null;
   votingExpiresAt?: number | null;
   round: number;
@@ -490,13 +489,11 @@ function App() {
                 onRestart={handleRestart}
                 onCloseRoom={handleLeave}
                 onToggleTheme={toggleTheme}
-                turnExpiresAt={gameState.turnExpiresAt}
+
                 roundExpiresAt={gameState.roundExpiresAt}
                 votingExpiresAt={gameState.votingExpiresAt}
-                totalTime={gameState.settings?.timeLimit || 15}
                 roundTotalTime={gameState.settings?.roundTimeLimit || 60}
                 votingTotalTime={gameState.settings?.votingTimeLimit || 30}
-                timerEnabled={gameState.settings?.timer || false}
                 roundTimerEnabled={gameState.settings?.roundTimer || false}
                 votingTimerEnabled={gameState.settings?.votingTimer || false}
               />

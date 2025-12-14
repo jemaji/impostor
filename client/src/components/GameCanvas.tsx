@@ -92,12 +92,10 @@ interface GameState {
     winner: 'civilians' | 'impostors' | null;
     paused?: boolean;
     pauseReason?: string;
-    turnExpiresAt?: number | null;
     roundExpiresAt?: number | null;
     votingExpiresAt?: number | null;
     settings?: {
-        timer: boolean;
-        timeLimit: number;
+
         punishment: boolean;
         customPunishment: string;
         roundTimer: boolean;
@@ -122,13 +120,10 @@ interface Props {
     onRestart: () => void;
     onCloseRoom: () => void;
     onToggleTheme: () => void;
-    turnExpiresAt?: number | null;
     roundExpiresAt?: number | null;
     votingExpiresAt?: number | null;
-    totalTime: number;
     roundTotalTime: number;
     votingTotalTime: number;
-    timerEnabled: boolean;
     roundTimerEnabled: boolean;
     votingTimerEnabled: boolean;
 }

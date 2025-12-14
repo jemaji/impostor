@@ -26,8 +26,7 @@ interface Props {
 }
 
 export interface Settings {
-    timer: boolean;
-    timeLimit: number;
+
     punishment: boolean;
     customPunishment: string;
     roundTimer: boolean;
@@ -91,8 +90,8 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                 <button
                     className="btn-primary"
                     onClick={onStart}
-                    disabled={players.length < 3 || (settings?.timer && (settings.timeLimit <= 0 || settings.timeLimit > 120))}
-                    style={{ opacity: (players.length < 3 || (settings?.timer && (settings.timeLimit <= 0 || settings.timeLimit > 120))) ? 0.5 : 1 }}
+                    disabled={players.length < 3}
+                    style={{ opacity: (players.length < 3) ? 0.5 : 1 }}
                 >
                     {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Comenzar Partida'}
                 </button>
@@ -303,51 +302,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                     </div>
                 )}
 
-                {/* Timer Settings */}
-                <div style={{
-                    marginTop: '10px',
-                    paddingTop: '10px',
-                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
-                }}>
-                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', cursor: isHost ? 'pointer' : 'default' }}>
-                        <span style={{ color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>⏱️ Temporizador</span>
-                        <input
-                            type="checkbox"
-                            checked={settings?.timer || false}
-                            onChange={(e) => isHost && onUpdateSettings({ timer: e.target.checked })}
-                            disabled={!isHost}
-                            style={{ transform: 'scale(1.2)' }}
-                        />
-                    </label>
 
-                    {settings?.timer && (
-                        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tiempo por turno (seg):</span>
-                                {isHost ? (
-                                    <input
-                                        type="number"
-                                        value={settings.timeLimit}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            onUpdateSettings({ timeLimit: val });
-                                        }}
-                                        style={{
-                                            width: '60px', padding: '4px', borderRadius: '4px',
-                                            border: (settings.timeLimit <= 0 || settings.timeLimit > 120) ? '2px solid var(--error)' : '1px solid var(--text-secondary)',
-                                            background: 'transparent',
-                                            color: theme === 'light' ? 'black' : 'white',
-                                            textAlign: 'center',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                ) : (
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.timeLimit}s</span>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
 
                 {/* Round Timer Settings */}
                 <div style={{
@@ -410,7 +365,6 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                     {settings?.punishment && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '-5px', marginBottom: '10px' }}>
                             Se asignará un castigo al perdedor.
-                            {settings?.timer && " También si se agota el tiempo."}
                         </p>
                     )}
                 </div>

@@ -21,7 +21,7 @@ const io = new Server(httpServer, {
 const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word: string, impostorIndex: number, turnIndex: number, inputs: [] } }
 
 const getSafeRoomState = (room) => {
-    const { roundTimer, votingTimer, turnTimer, ...safeRoom } = room;
+    const { roundTimer, votingTimer, ...safeRoom } = room;
     return safeRoom;
 };
 
@@ -110,9 +110,6 @@ const handleTurnTimeout = (room, code, io) => {
 const processSubmission = (room, code, io, playerName, term, isAuto = false) => {
     room.inputs.push({ playerName, term, round: room.round });
 
-    if (room.turnTimer) clearTimeout(room.turnTimer);
-    room.turnExpiresAt = null;
-
     // Simultaneous writing: no turn index update needed
 
     const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
@@ -167,8 +164,7 @@ io.on('connection', (socket) => {
             currentPunishment: null,
             inputsInCurrentRound: 0,
             settings: {
-                timer: false,
-                timeLimit: 10,
+
                 punishment: false,
                 customPunishment: '',
                 roundTimer: false,
@@ -463,7 +459,6 @@ io.on('connection', (socket) => {
         room.currentPunishment = null;
         room.impostorIds = [];
         room.inputsInCurrentRound = 0;
-        if (room.turnTimer) clearTimeout(room.turnTimer);
         if (room.roundTimer) clearTimeout(room.roundTimer);
         if (room.votingTimer) clearTimeout(room.votingTimer);
         room.turnExpiresAt = null;
@@ -489,7 +484,6 @@ io.on('connection', (socket) => {
         if (data.isHost) {
             // Host is leaving - close the room for everyone
             io.to(data.code).emit('room_closed');
-            if (room.turnTimer) clearTimeout(room.turnTimer);
             delete rooms[data.code];
         } else {
             // Regular player leaving - just remove them
@@ -499,7 +493,6 @@ io.on('connection', (socket) => {
 
                 // If no players left, delete room
                 if (room.players.length === 0) {
-                    if (room.turnTimer) clearTimeout(room.turnTimer);
                     delete rooms[data.code];
                 } else {
                     // Assign new host if needed
@@ -541,7 +534,6 @@ io.on('connection', (socket) => {
                 if (activePlayers.length <= 1) {
                     console.log(`Room ${code} closing - only ${activePlayers.length} active player(s)`);
                     io.to(code).emit('room_closed');
-                    if (room.turnTimer) clearTimeout(room.turnTimer);
                     delete rooms[code];
                     return;
                 }
@@ -569,7 +561,6 @@ io.on('connection', (socket) => {
                     if (currentRoom) {
                         const allDisconnected = currentRoom.players.every(p => p.disconnected);
                         if (allDisconnected) {
-                            if (currentRoom.turnTimer) clearTimeout(currentRoom.turnTimer);
                             delete rooms[code];
                         }
                     }
