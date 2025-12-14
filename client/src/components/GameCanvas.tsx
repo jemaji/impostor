@@ -150,7 +150,7 @@ export const GameCanvas: React.FC<Props> = ({
     const [term, setTerm] = useState('');
     const [holdingRole, setHoldingRole] = useState(false);
     const [holdingWord, setHoldingWord] = useState(false);
-    const [showHistory, setShowHistory] = useState(false);
+    // const [showHistory, setShowHistory] = useState(false); // Removed for combined view
     const [touchStart, setTouchStart] = useState(0);
 
     // Ghost Mode State
@@ -228,17 +228,7 @@ export const GameCanvas: React.FC<Props> = ({
     };
 
     const handleTouchEnd = (e: React.TouchEvent) => {
-        const touchEnd = e.changedTouches[0].clientX;
-        const diff = touchStart - touchEnd;
-
-        // Swipe left (show history) or right (show voting)
-        if (Math.abs(diff) > 50) {
-            if (diff > 0) {
-                setShowHistory(true);
-            } else {
-                setShowHistory(false);
-            }
-        }
+        // Swipe logic removed
     };
 
     // Game Over Screen
@@ -333,68 +323,54 @@ export const GameCanvas: React.FC<Props> = ({
                         📊 REVELANDO VOTOS...
                     </div>
                 )}
-                {!showHistory ? (
-                    // Front: Voting
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
-                        animation: showHistory ? 'none' : 'fadeIn 0.3s ease-in'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px' }}>
+                {/* Combined Voting and History View */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    animation: 'fadeIn 0.3s ease-in'
+                }}>
+                    <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: '10px' }}>{getVoteStatus()}</p>
 
-                            <button
-                                onClick={() => setShowHistory(true)}
-                                style={{
-                                    background: 'rgba(139, 92, 246, 0.2)',
-                                    border: '2px solid var(--glass-border)',
-                                    borderRadius: '8px',
-                                    padding: '8px 12px',
-                                    color: 'var(--text-primary)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }}
-                            >
-                                📜 Ver Historial
-                            </button>
-                        </div>
-                        <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: '20px' }}>{getVoteStatus()}</p>
-
-                        {isKicked && (
-                            <div style={{
-                                marginBottom: '10px',
-                                background: 'rgba(139, 92, 246, 0.1)',
-                                padding: '10px',
-                                borderRadius: '12px',
-                                textAlign: 'center',
-                                border: '1px solid var(--accent-secondary)',
-                                backdropFilter: 'blur(4px)'
-                            }}>
-                                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)' }}>👻 MODO FANTASMA 👻</div>
-                                <div className="ghost-toolbar">
-                                    {GHOST_EMOJIS.map(emoji => (
-                                        <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
-                                            {emoji}
-                                        </button>
-                                    ))}
-                                </div>
+                    {isKicked && (
+                        <div style={{
+                            marginBottom: '10px',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            padding: '10px',
+                            borderRadius: '12px',
+                            textAlign: 'center',
+                            border: '1px solid var(--accent-secondary)',
+                            backdropFilter: 'blur(4px)'
+                        }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-secondary)' }}>👻 MODO FANTASMA 👻</div>
+                            <div className="ghost-toolbar">
+                                {GHOST_EMOJIS.map(emoji => (
+                                    <button key={emoji} className="ghost-btn" onClick={() => sendGhostReaction(emoji)}>
+                                        {emoji}
+                                    </button>
+                                ))}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {/* Current Round Voting List */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '20px', borderBottom: '1px solid var(--glass-border)' }}>
+                            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: 'var(--accent-secondary)' }}>Vota al Impostor</h3>
                             {gameState.players.filter(p => !gameState.kickedIds.includes(p.id)).map(p => {
-                                // Count ghost votes for this player
                                 const ghostVoteCount = Object.values(gameState.ghostVotes || {}).filter(targetId => targetId === p.id).length;
                                 const myGhostVote = gameState.ghostVotes?.[myId];
                                 const isMyGhostTarget = myGhostVote === p.id;
+
+                                // Find player's input for this round
+                                const playerInput = gameState.inputs.find(i => i.playerName === p.name && (i.round === gameState.round || !i.round));
+                                const playerTerm = playerInput ? playerInput.term : '...';
 
                                 return (
                                     <button
                                         key={p.id}
                                         onClick={() => {
                                             if (isKicked) {
-                                                // Ghost Vote
                                                 socket.emit('ghost_vote', { code: gameState.code, targetId: p.id });
                                                 audioManager.play('pop');
                                             } else if (!hasVoted) {
@@ -420,14 +396,19 @@ export const GameCanvas: React.FC<Props> = ({
                                         }}
                                     >
                                         <div style={{
-                                            width: '32px', height: '32px', borderRadius: '50%',
+                                            width: '40px', height: '40px', borderRadius: '50%',
                                             background: p.color || 'gray',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '18px'
+                                            fontSize: '20px'
                                         }}>
                                             {p.avatar || '👤'}
                                         </div>
-                                        <span style={{ flex: 1 }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontWeight: 'bold' }}>{p.name} {p.id === myId ? '(Tú)' : ''}</span>
+                                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                                "{playerTerm}"
+                                            </span>
+                                        </div>
 
                                         {/* Ghost Votes Display */}
                                         <div style={{ display: 'flex', gap: '2px' }}>
@@ -459,7 +440,6 @@ export const GameCanvas: React.FC<Props> = ({
                                     </button>
                                 )
                             })}
-
 
                             {/* Skip Button - Only for alive players */}
                             {!isKicked && (
@@ -503,46 +483,15 @@ export const GameCanvas: React.FC<Props> = ({
                                     )}
                                 </button>
                             )}
-
                         </div>
                         {hasVoted && !isKicked && <p style={{ textAlign: 'center', marginTop: '10px' }}>Esperando a los demás...</p>}
                         {isKicked && <p style={{ textAlign: 'center', marginTop: '10px', color: 'var(--accent-secondary)' }}>👻 Vota para asustar a los vivos (Click en su nombre)</p>}
 
-
-                    </div>
-                ) : (
-                    // Back: Conversation History
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
-                        animation: 'fadeIn 0.3s ease-in'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px' }}>
-
-                            <button
-                                onClick={() => setShowHistory(false)}
-                                style={{
-                                    background: 'rgba(139, 92, 246, 0.2)',
-                                    border: '2px solid var(--glass-border)',
-                                    borderRadius: '8px',
-                                    padding: '8px 12px',
-                                    color: 'var(--text-primary)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }}
-                            >
-                                ← Volver a Votar
-                            </button>
-                        </div>
-
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {sortedRounds.length > 0 ? (
-                                sortedRounds.map(roundNum => {
-                                    const isCurrentRound = roundNum === gameState.round;
-                                    // In Voting/History, gameState.round is still the "just finished" round usually, 
-                                    // or checking against expandedRound is enough.
+                        {/* Previous Rounds History */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: 'var(--text-secondary)', opacity: 0.8 }}>Rondas Anteriores</h3>
+                            {sortedRounds.filter(r => r < gameState.round).length > 0 ? (
+                                sortedRounds.filter(r => r < gameState.round).map(roundNum => {
                                     const isExpanded = roundNum === expandedRound;
                                     const roundInputs = groupedInputs[roundNum];
 
@@ -553,13 +502,13 @@ export const GameCanvas: React.FC<Props> = ({
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px',
-                                                    background: isCurrentRound ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255,255,255,0.05)',
+                                                    background: 'rgba(255,255,255,0.05)',
                                                     border: 'none',
                                                     borderBottom: isExpanded ? '1px solid var(--glass-border)' : 'none',
                                                     display: 'flex',
                                                     justifyContent: 'space-between',
                                                     alignItems: 'center',
-                                                    color: isCurrentRound ? 'var(--accent-secondary)' : 'var(--text-primary)',
+                                                    color: 'var(--text-primary)',
                                                     cursor: 'pointer',
                                                     outline: 'none',
                                                     boxShadow: 'none',
@@ -567,7 +516,7 @@ export const GameCanvas: React.FC<Props> = ({
                                                 }}
                                             >
                                                 <span style={{ fontWeight: 'bold' }}>
-                                                    {isCurrentRound ? `Ronda Actual (${roundNum})` : `Ronda ${roundNum}`}
+                                                    Ronda {roundNum}
                                                 </span>
                                                 <span>{isExpanded ? '▲' : '▼'}</span>
                                             </button>
@@ -611,11 +560,11 @@ export const GameCanvas: React.FC<Props> = ({
                                     );
                                 })
                             ) : (
-                                <p style={{ textAlign: 'center', opacity: 0.3, marginTop: '20px' }}>No hay historial aún.</p>
+                                <p style={{ textAlign: 'center', opacity: 0.3 }}>No hay rondas anteriores.</p>
                             )}
                         </div>
                     </div>
-                )}
+                </div>
             </div>
 
         );
@@ -820,7 +769,13 @@ export const GameCanvas: React.FC<Props> = ({
                                                     </div>
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{input.playerName}</div>
-                                                        <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{input.term}</div>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>
+                                                            {/* Mask input if in playing state and round timer is enabled */}
+                                                            {gameState.state === 'playing' && roundTimerEnabled && roundExpiresAt
+                                                                ? '🙈 *****'
+                                                                : input.term
+                                                            }
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );

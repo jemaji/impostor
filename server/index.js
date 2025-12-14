@@ -22,6 +22,15 @@ const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word
 
 const getSafeRoomState = (room) => {
     const { roundTimer, votingTimer, ...safeRoom } = room;
+
+    // Secret Writing: Mask terms during 'playing' state
+    if (safeRoom.state === 'playing') {
+        safeRoom.inputs = safeRoom.inputs.map(i => ({
+            ...i,
+            term: '*****' // Masked
+        }));
+    }
+
     return safeRoom;
 };
 
