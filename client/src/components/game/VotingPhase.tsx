@@ -46,6 +46,8 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
     onRestart
 }) => {
     const hasVoted = gameState.votes[myId];
+    const voteDisclosure = gameState.settings?.voteDisclosure || 'reveal';
+    const showVotes = (voteDisclosure === 'realtime') || (voteDisclosure === 'reveal' && gameState.state === 'revealing');
 
     const getVoteStatus = () => {
         if (gameState.state !== 'voting') return null;
@@ -78,9 +80,15 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
                 </div>
             )}
 
-            {gameState.state === 'revealing' && (
+            {gameState.state === 'revealing' && voteDisclosure !== 'privacy' && (
                 <div style={{ textAlign: 'center', padding: '10px', background: 'var(--accent-primary)', color: 'white', fontWeight: 'bold' }}>
                     📊 REVELANDO VOTOS...
+                </div>
+            )}
+
+            {gameState.state === 'revealing' && voteDisclosure === 'privacy' && (
+                <div style={{ textAlign: 'center', padding: '10px', background: 'var(--accent-primary)', color: 'white', fontWeight: 'bold' }}>
+                    📊 RESULTADOS (Votos Ocultos)
                 </div>
             )}
 
@@ -160,7 +168,7 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
                                     </div>
 
                                     {/* Reveal Votes */}
-                                    {gameState.state === 'revealing' && (
+                                    {showVotes && (
                                         <div style={{ display: 'flex', gap: '4px' }}>
                                             {Object.entries(gameState.votes)
                                                 .filter(([_, targetId]) => targetId === p.id)
@@ -200,7 +208,7 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
                                 }}
                             >
                                 <span>Saltar Votación {gameState.votes[myId] === 'skip' ? '(Seleccionado)' : ''}</span>
-                                {gameState.state === 'revealing' && (
+                                {showVotes && (
                                     <div style={{ display: 'flex', gap: '4px' }}>
                                         {Object.entries(gameState.votes)
                                             .filter(([_, targetId]) => targetId === 'skip')

@@ -184,7 +184,8 @@ io.on('connection', (socket) => {
                 roundTimer: false,
                 roundTimeLimit: 60,
                 votingTimer: false,
-                votingTimeLimit: 30
+                votingTimeLimit: 30,
+                voteDisclosure: 'reveal' // 'privacy', 'reveal', 'realtime'
             }
         };
         socket.join(code);

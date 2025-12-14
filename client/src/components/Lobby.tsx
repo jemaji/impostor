@@ -33,6 +33,7 @@ export interface Settings {
     roundTimeLimit: number;
     votingTimer: boolean;
     votingTimeLimit: number;
+    voteDisclosure: 'privacy' | 'reveal' | 'realtime';
 }
 
 const CATEGORIES = [
@@ -407,6 +408,49 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                             ) : (
                                 <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.votingTimeLimit || 30}s</span>
                             )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Vote Disclosure Settings */}
+                <div style={{
+                    marginTop: '10px',
+                    paddingTop: '10px',
+                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
+                }}>
+                    <label style={{ display: 'block', marginBottom: '8px', color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>
+                        👁️ Revelación de Votos
+                    </label>
+                    {isHost ? (
+                        <select
+                            value={settings?.voteDisclosure || 'reveal'}
+                            onChange={(e) => onUpdateSettings({ voteDisclosure: e.target.value as any })}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--text-secondary)',
+                                background: theme === 'light' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.3)',
+                                color: theme === 'light' ? 'black' : 'white',
+                                fontSize: '0.9rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <option value="privacy">🔒 Oculto (Nadie ve quién votó a quién)</option>
+                            <option value="reveal">⏱️ Al final (Revelar tras todos votar)</option>
+                            <option value="realtime">⚡ En vivo (Ver votos al instante)</option>
+                        </select>
+                    ) : (
+                        <div style={{
+                            fontSize: '0.9rem',
+                            color: 'var(--text-secondary)',
+                            padding: '8px',
+                            background: 'rgba(255,255,255,0.05)',
+                            borderRadius: '8px'
+                        }}>
+                            {settings?.voteDisclosure === 'privacy' && '🔒 Oculto (Nadie ve quién votó a quién)'}
+                            {(settings?.voteDisclosure === 'reveal' || !settings?.voteDisclosure) && '⏱️ Al final (Revelar tras todos votar)'}
+                            {settings?.voteDisclosure === 'realtime' && '⚡ En vivo (Ver votos al instante)'}
                         </div>
                     )}
                 </div>

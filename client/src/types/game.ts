@@ -19,6 +19,7 @@ export interface GameSettings {
     roundTimeLimit: number;
     votingTimer: boolean;
     votingTimeLimit: number;
+    voteDisclosure: 'privacy' | 'reveal' | 'realtime';
 }
 
 export interface GameState {
