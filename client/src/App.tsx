@@ -7,6 +7,18 @@ import { GameCanvas } from './components/GameCanvas';
 import { EjectionAnimation } from './components/EjectionAnimation';
 import { audioManager } from './services/audioManager';
 import { GoogleAnalytics } from './components/GoogleAnalytics';
+import {
+  DEFAULT_ROUND_TIME,
+  DEFAULT_VOTING_TIME,
+  FLUSH_ANIMATION_DURATION,
+  WAKE_UP_CHECK_DELAY,
+  THEME_STORAGE_KEY,
+  UID_STORAGE_KEY,
+  ROOM_STORAGE_KEY,
+  NAME_STORAGE_KEY,
+  COLOR_STORAGE_KEY,
+  AVATAR_STORAGE_KEY
+} from './constants';
 import './styles/index.css';
 
 interface Player {
@@ -37,12 +49,18 @@ interface GameState {
   paused?: boolean;
   pauseReason?: string;
   settings?: {
-    timer: boolean;
-    timeLimit: number;
+
     punishment: boolean;
     customPunishment: string;
+    roundTimer: boolean;
+    roundTimeLimit: number;
+    votingTimer: boolean;
+    votingTimeLimit: number;
+    voteDisclosure: 'privacy' | 'reveal' | 'realtime';
   };
-  turnExpiresAt?: number | null;
+
+  roundExpiresAt?: number | null;
+  votingExpiresAt?: number | null;
   round: number;
 }
 
@@ -51,6 +69,7 @@ interface EjectionData {
   isImpostor: boolean;
   color: string;
   avatar: string;
+
 }
 
 function App() {
@@ -61,7 +80,7 @@ function App() {
   const [shake, setShake] = useState(false);
   const [myName, setMyName] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const saved = localStorage.getItem('impostor_theme');
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
     return (saved as 'dark' | 'light') || 'dark';
   });
   const hasPlayedEndSound = useRef(false);
@@ -90,7 +109,7 @@ function App() {
     } else {
       document.documentElement.removeAttribute('data-theme');
     }
-    localStorage.setItem('impostor_theme', theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   const toggleTheme = () => {
@@ -99,10 +118,10 @@ function App() {
 
   // Permanent User ID for reconnection
   const [userId] = useState(() => {
-    const stored = localStorage.getItem('impostor_uid');
+    const stored = localStorage.getItem(UID_STORAGE_KEY);
     if (stored) return stored;
     const newId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    localStorage.setItem('impostor_uid', newId);
+    localStorage.setItem(UID_STORAGE_KEY, newId);
     return newId;
   });
 
@@ -175,12 +194,10 @@ function App() {
               });
 
               // Self ejection feedback
-              if (kickedId === socket.id) {
-                setShake(true);
-                audioManager.play('failure');
-                audioManager.vibrate(1000);
-                setTimeout(() => setShake(false), 500);
-              }
+              setShake(true);
+              audioManager.play('failure');
+              audioManager.vibrate(1000);
+              setTimeout(() => setShake(false), FLUSH_ANIMATION_DURATION);
             }
           }
         }
@@ -197,12 +214,12 @@ function App() {
 
       // Save code for reconnection
       if (room.code) {
-        localStorage.setItem('impostor_room', room.code);
+        localStorage.setItem(ROOM_STORAGE_KEY, room.code);
         // We prefer using the name from the room state if possible, as myName might be stale in closure
         // But for creating player, we need to ensure we save it.
         const me = room.players.find(p => p.id === socket.id);
         if (me) {
-          localStorage.setItem('impostor_name', me.name);
+          localStorage.setItem(NAME_STORAGE_KEY, me.name);
         }
       }
     });
@@ -219,17 +236,17 @@ function App() {
 
     socket.on('room_closed', () => {
       // Room was closed by host
-      localStorage.removeItem('impostor_room');
+      localStorage.removeItem(ROOM_STORAGE_KEY);
       setGameState(null);
       setShowRoomClosedModal(true);
     });
 
     // Reconnection logic
     socket.on('connect', () => {
-      const savedCode = localStorage.getItem('impostor_room');
-      const savedName = localStorage.getItem('impostor_name');
-      const savedColor = localStorage.getItem('impostor_color') || '#8b5cf6';
-      const savedAvatar = localStorage.getItem('impostor_avatar') || '👽';
+      const savedCode = localStorage.getItem(ROOM_STORAGE_KEY);
+      const savedName = localStorage.getItem(NAME_STORAGE_KEY);
+      const savedColor = localStorage.getItem(COLOR_STORAGE_KEY) || '#8b5cf6';
+      const savedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY) || '👽';
 
       if (savedCode && savedName) {
         console.log("Attempting to reconnect...", savedCode);
@@ -242,7 +259,7 @@ function App() {
         }, (res: any) => {
           if (res.error) {
             console.warn("Reconnection failed:", res.error);
-            localStorage.removeItem('impostor_room'); // Clear if invalid
+            localStorage.removeItem(ROOM_STORAGE_KEY); // Clear if invalid
             setGameState(null);
           }
         });
@@ -266,7 +283,7 @@ function App() {
         if (!socket.connected) {
           setShowWakeUpMessage(true);
         }
-      }, 2000); // Wait 2s before showing "Waking up" message
+      }, WAKE_UP_CHECK_DELAY); // Wait 2s before showing "Waking up" message
     }
 
     const onConnect = () => {
@@ -285,9 +302,9 @@ function App() {
   const handleCreate = (name: string, color: string, avatar: string) => {
     setMyName(name);
     // Persist details immediately
-    localStorage.setItem('impostor_name', name);
-    localStorage.setItem('impostor_color', color);
-    localStorage.setItem('impostor_avatar', avatar);
+    localStorage.setItem(NAME_STORAGE_KEY, name);
+    localStorage.setItem(COLOR_STORAGE_KEY, color);
+    localStorage.setItem(AVATAR_STORAGE_KEY, avatar);
 
     socket.emit('create_room', { name, color, avatar, userId }, () => { });
   };
@@ -295,9 +312,9 @@ function App() {
   const handleJoin = (name: string, code: string, color: string, avatar: string) => {
     setMyName(name);
     // Persist details immediately
-    localStorage.setItem('impostor_name', name);
-    localStorage.setItem('impostor_color', color);
-    localStorage.setItem('impostor_avatar', avatar);
+    localStorage.setItem(NAME_STORAGE_KEY, name);
+    localStorage.setItem(COLOR_STORAGE_KEY, color);
+    localStorage.setItem(AVATAR_STORAGE_KEY, avatar);
 
     socket.emit('join_room', { name, code, color, avatar, userId }, (res: { error?: string }) => {
       if (res.error) alert(res.error);
@@ -332,7 +349,7 @@ function App() {
 
   const handleLeave = () => {
     // Clear room data from localStorage
-    localStorage.removeItem('impostor_room');
+    localStorage.removeItem(ROOM_STORAGE_KEY);
 
     // If host, emit leave_room to close the room for everyone
     if (gameState) {
@@ -484,9 +501,13 @@ function App() {
                 onRestart={handleRestart}
                 onCloseRoom={handleLeave}
                 onToggleTheme={toggleTheme}
-                turnExpiresAt={gameState.turnExpiresAt}
-                totalTime={gameState.settings?.timeLimit || 15}
-                timerEnabled={gameState.settings?.timer || false}
+
+                roundExpiresAt={gameState.roundExpiresAt}
+                votingExpiresAt={gameState.votingExpiresAt}
+                roundTotalTime={gameState.settings?.roundTimeLimit || DEFAULT_ROUND_TIME}
+                votingTotalTime={gameState.settings?.votingTimeLimit || DEFAULT_VOTING_TIME}
+                roundTimerEnabled={gameState.settings?.roundTimer || false}
+                votingTimerEnabled={gameState.settings?.votingTimer || false}
               />
             )}
           </>

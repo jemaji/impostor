@@ -8,9 +8,10 @@ interface HeaderProps {
     isHost?: boolean;
     onToggleTheme?: () => void;
     onCloseRoom?: () => void;
+    onRestart?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, theme, isHost, onToggleTheme, onCloseRoom }) => {
+export const Header: React.FC<HeaderProps> = ({ title, theme, isHost, onToggleTheme, onCloseRoom, onRestart }) => {
     const [muted, setMuted] = useState(audioManager.getMuteState());
 
     const toggleMute = () => {
@@ -63,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ title, theme, isHost, onToggleTh
                 </button>
 
                 {onToggleTheme && theme && (
-                    <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} />
+                    <HamburgerMenu theme={theme} isHost={isHost} onToggleTheme={onToggleTheme} onCloseRoom={onCloseRoom} onRestart={onRestart} />
                 )}
             </div>
         </div>

@@ -20,76 +20,129 @@ const io = new Server(httpServer, {
 // State
 const rooms = {}; // { [roomCode]: { players: [], state: 'lobby'|'playing', word: string, impostorIndex: number, turnIndex: number, inputs: [] } }
 
+const getSafeRoomState = (room) => {
+    const { roundTimer, votingTimer, ...safeRoom } = room;
+
+    // Secret Writing: Mask terms ONLY for the CURRENT round during 'playing' state
+    if (safeRoom.state === 'playing') {
+        safeRoom.inputs = safeRoom.inputs.map(i => {
+            // If input is from current round, mask it. Past rounds remain visible.
+            if (i.round === room.round) {
+                return { ...i, term: '*****' };
+            }
+            return i;
+        });
+    }
+
+    return safeRoom;
+};
+
 const generateCode = () => Math.random().toString(36).substring(2, 6).toUpperCase();
 
-const startTurnTimer = (room, code, io) => {
-    if (room.turnTimer) clearTimeout(room.turnTimer);
+// Turn timer removed for simultaneous writing
 
-    if (room.state !== 'playing' || !room.settings?.timer) {
-        room.turnExpiresAt = null;
+
+const startRoundTimer = (room, code, io) => {
+    if (room.roundTimer) clearTimeout(room.roundTimer);
+
+    if (room.state !== 'playing' || !room.settings?.roundTimer) {
+        room.roundExpiresAt = null;
         return;
     }
 
-    const duration = (room.settings.timeLimit || 15) * 1000;
-    room.turnExpiresAt = Date.now() + duration;
+    const duration = (room.settings.roundTimeLimit || 60) * 1000;
+    room.roundExpiresAt = Date.now() + duration;
 
-    // Emit update so clients see the timer
-    io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+    io.to(code).emit('room_update', getSafeRoomState(room));
 
-    room.turnTimer = setTimeout(() => {
-        handleTurnTimeout(room, code, io);
+    room.roundTimer = setTimeout(() => {
+        handleRoundTimeout(room, code, io);
     }, duration);
 };
 
-const handleTurnTimeout = (room, code, io) => {
+const handleRoundTimeout = (room, code, io) => {
     // Safety check: ensure room still exists in global state
     if (!rooms[code]) return;
+
     if (room.state !== 'playing') return;
 
-    const currentPlayer = room.players[room.turnIndex];
-    console.log(`Time out for ${currentPlayer.name}`);
+    console.log(`Global Round Timeout for room ${code}`);
 
-    // Apply punishment logic
-    if (room.settings?.punishment) {
-        const punishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
-        const punishmentTerm = `🤡 CASTIGO: ${punishment}`;
-        processSubmission(room, code, io, currentPlayer.name, punishmentTerm, true);
-    } else {
-        // Shame phrase
-        const phrase = SHAME_PHRASES[Math.floor(Math.random() * SHAME_PHRASES.length)];
-        const shameTerm = `😳 "${phrase}"`;
-        processSubmission(room, code, io, currentPlayer.name, shameTerm, true);
+    // Find players who haven't submitted FOR THE CURRENT ROUND
+    const currentRoundInputs = room.inputs.filter(i => i.round === room.round);
+    const submittedPlayerNames = currentRoundInputs.map(i => i.playerName);
+    const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
+
+    activePlayers.forEach(player => {
+        if (!submittedPlayerNames.includes(player.name)) {
+            // Apply punishment logic or shame phrase
+            if (room.settings?.punishment) {
+                const punishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
+                const punishmentTerm = `🤡 CASTIGO: ${punishment}`;
+                processSubmission(room, code, io, player.name, punishmentTerm, true);
+            } else {
+                const phrase = SHAME_PHRASES[Math.floor(Math.random() * SHAME_PHRASES.length)];
+                const shameTerm = `😳 "${phrase}"`;
+                processSubmission(room, code, io, player.name, shameTerm, true);
+            }
+        }
+    });
+};
+
+const startVotingTimer = (room, code, io) => {
+    if (room.votingTimer) clearTimeout(room.votingTimer);
+
+    if (room.state !== 'voting' || !room.settings?.votingTimer) {
+        room.votingExpiresAt = null;
+        return;
     }
+
+    const duration = (room.settings.votingTimeLimit || 30) * 1000;
+    room.votingExpiresAt = Date.now() + duration;
+
+    io.to(code).emit('room_update', getSafeRoomState(room));
+
+    room.votingTimer = setTimeout(() => {
+        handleVotingTimeout(room, code, io);
+    }, duration);
+};
+
+const handleVotingTimeout = (room, code, io) => {
+    if (room.state !== 'voting') return;
+
+    console.log(`Voting Timeout for room ${code}`);
+
+    // Force tally votes
+    tallyVotes(room, code, io);
+};
+
+const handleTurnTimeout = (room, code, io) => {
+    // Deprecated for simultaneous writing
 };
 
 const processSubmission = (room, code, io, playerName, term, isAuto = false) => {
     room.inputs.push({ playerName, term, round: room.round });
 
-    if (room.turnTimer) clearTimeout(room.turnTimer);
-    room.turnExpiresAt = null;
-
-    // Find next active player
-    let nextIndex = (room.turnIndex + 1) % room.players.length;
-    let loops = 0;
-    while (room.kickedIds.includes(room.players[nextIndex].id) && loops < room.players.length) {
-        nextIndex = (nextIndex + 1) % room.players.length;
-        loops++;
-    }
-    room.turnIndex = nextIndex;
+    // Simultaneous writing: no turn index update needed
 
     const activePlayers = room.players.filter(p => !room.kickedIds.includes(p.id));
-    room.inputsInCurrentRound++;
+    // Count unique players who have submitted FOR THE CURRENT ROUND
+    const currentRoundInputs = room.inputs.filter(i => i.round === room.round);
+    const submittedPlayers = new Set(currentRoundInputs.map(i => i.playerName));
 
-    if (room.inputsInCurrentRound >= activePlayers.length) {
+    if (submittedPlayers.size >= activePlayers.length) {
+        if (room.roundTimer) clearTimeout(room.roundTimer);
+        room.roundExpiresAt = null;
+
         room.state = 'voting';
         room.votes = {};
         room.ghostVotes = {}; // Reset ghost votes for new voting round
         room.inputsInCurrentRound = 0;
-        io.to(code).emit('room_update', { ...room, turnTimer: undefined });
+        io.to(code).emit('room_update', getSafeRoomState(room));
+        startVotingTimer(room, code, io);
     } else {
-        // Start timer for next player
-        io.to(code).emit('room_update', { ...room, turnTimer: undefined });
-        startTurnTimer(room, code, io);
+        // Just update state so others see "Waiting..."
+        io.to(code).emit('room_update', getSafeRoomState(room));
     }
 };
 
@@ -125,15 +178,19 @@ io.on('connection', (socket) => {
             currentPunishment: null,
             inputsInCurrentRound: 0,
             settings: {
-                timer: false,
-                timeLimit: 10,
+
                 punishment: false,
-                customPunishment: ''
+                customPunishment: '',
+                roundTimer: false,
+                roundTimeLimit: 60,
+                votingTimer: false,
+                votingTimeLimit: 30,
+                voteDisclosure: 'reveal' // 'privacy', 'reveal', 'realtime'
             }
         };
         socket.join(code);
         callback({ code });
-        io.to(code).emit('room_update', rooms[code]);
+        io.to(code).emit('room_update', getSafeRoomState(rooms[code]));
     });
 
     socket.on('join_room', (data, callback) => {
@@ -198,7 +255,7 @@ io.on('connection', (socket) => {
             }
 
             callback({ success: true });
-            io.to(data.code).emit('room_update', room);
+            io.to(data.code).emit('room_update', getSafeRoomState(room));
             return;
         }
 
@@ -216,7 +273,7 @@ io.on('connection', (socket) => {
         });
         socket.join(data.code);
         callback({ success: true });
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('set_difficulty', (data) => {
@@ -224,7 +281,7 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'lobby') return;
 
         room.difficulty = data.difficulty;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('set_category', (data) => {
@@ -232,7 +289,7 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'lobby') return;
 
         room.category = data.category;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('update_settings', (data) => {
@@ -240,7 +297,7 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'lobby') return;
 
         room.settings = { ...room.settings, ...data.settings };
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('start_game', (data) => {
@@ -283,7 +340,7 @@ io.on('connection', (socket) => {
             room.impostorIds.push(room.players[idx].id);
         }
 
-        room.turnIndex = Math.floor(Math.random() * playerCount);
+        room.turnIndex = -1; // Simultaneous writing
         room.round = 1;
         room.inputs = [];
         room.votes = {}; // { [voterId]:  targetId | 'skip' }
@@ -292,8 +349,8 @@ io.on('connection', (socket) => {
         room.winner = null; // 'impostors' | 'civilians'
         room.inputsInCurrentRound = 0;
 
-        io.to(data.code).emit('game_started', room);
-        startTurnTimer(room, data.code, io);
+        io.to(data.code).emit('game_started', getSafeRoomState(room));
+        startRoundTimer(room, data.code, io);
     });
 
     socket.on('submit_term', (data) => {
@@ -312,75 +369,88 @@ io.on('connection', (socket) => {
         const voteCount = Object.keys(room.votes).length;
 
         if (voteCount >= activePlayers.length) {
-            // Tally votes
-            const counts = {};
-            for (const vid in room.votes) {
-                const target = room.votes[vid];
-                counts[target] = (counts[target] || 0) + 1;
+            tallyVotes(room, data.code, io);
+        } else {
+            io.to(data.code).emit('room_update', getSafeRoomState(room));
+        }
+    });
+
+    const tallyVotes = (room, code, io) => {
+        if (room.votingTimer) clearTimeout(room.votingTimer);
+        room.votingExpiresAt = null;
+
+        // Transition to revealing state instead of immediate tally
+        room.state = 'revealing';
+        io.to(code).emit('room_update', getSafeRoomState(room));
+
+        // 5 seconds to reveal votes
+        setTimeout(() => {
+            finalizeVoting(room, code, io);
+        }, 5000);
+    };
+
+    const finalizeVoting = (room, code, io) => {
+        // Tally votes
+        const counts = {};
+        for (const vid in room.votes) {
+            const target = room.votes[vid];
+            counts[target] = (counts[target] || 0) + 1;
+        }
+
+        let maxVotes = 0;
+        let candidate = null;
+        let tie = false;
+
+        for (const target in counts) {
+            if (counts[target] > maxVotes) {
+                maxVotes = counts[target];
+                candidate = target;
+                tie = false;
+            } else if (counts[target] === maxVotes) {
+                tie = true;
+            }
+        }
+
+        if (!tie && candidate && candidate !== 'skip') {
+            room.kickedIds.push(candidate);
+
+            // Check Win Conditions
+            const impostorsLeft = room.impostorIds.filter(id => !room.kickedIds.includes(id)).length;
+            const civiliansLeft = room.players.filter(p => !room.impostorIds.includes(p.id) && !room.kickedIds.includes(p.id)).length;
+
+            if (impostorsLeft === 0) {
+                room.state = 'game_over';
+                room.winner = 'civilians';
+            } else if (impostorsLeft >= civiliansLeft) {
+                room.state = 'game_over';
+                room.winner = 'impostors';
             }
 
-            let maxVotes = 0;
-            let candidate = null;
-            let tie = false;
-
-            for (const target in counts) {
-                if (counts[target] > maxVotes) {
-                    maxVotes = counts[target];
-                    candidate = target;
-                    tie = false;
-                } else if (counts[target] === maxVotes) {
-                    tie = true;
-                }
-            }
-
-            if (!tie && candidate && candidate !== 'skip') {
-                room.kickedIds.push(candidate);
-
-                // Check Win Conditions
-                const impostorsLeft = room.impostorIds.filter(id => !room.kickedIds.includes(id)).length;
-                const civiliansLeft = room.players.filter(p => !room.impostorIds.includes(p.id) && !room.kickedIds.includes(p.id)).length;
-
-                if (impostorsLeft === 0) {
-                    room.state = 'game_over';
-                    room.winner = 'civilians';
-                } else if (impostorsLeft >= civiliansLeft) {
-                    room.state = 'game_over';
-                    room.winner = 'impostors';
-                }
-
-                if (room.state === 'game_over') {
-                    // Assign punishment if enabled
-                    if (room.settings?.punishment) {
-                        room.currentPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
-                    }
-                } else {
-                    // Continue Playing
-                    room.state = 'playing';
-                    room.round++;
+            if (room.state === 'game_over') {
+                // Assign punishment if enabled
+                if (room.settings?.punishment) {
+                    room.currentPunishment = PUNISHMENTS[Math.floor(Math.random() * PUNISHMENTS.length)];
                 }
             } else {
-                // Tie or Skip
+                // Continue Playing
                 room.state = 'playing';
                 room.round++;
             }
-
-            if (room.state === 'playing') {
-                // Don't reset turnIndex - maintain the circular order
-                // Just ensure current turn player is active
-                let loops = 0;
-                while (room.kickedIds.includes(room.players[room.turnIndex].id) && loops < room.players.length) {
-                    room.turnIndex = (room.turnIndex + 1) % room.players.length;
-                    loops++;
-                }
-                io.to(data.code).emit('room_update', room);
-                startTurnTimer(room, data.code, io);
-            } else {
-                io.to(data.code).emit('room_update', room);
-            }
         } else {
-            io.to(data.code).emit('room_update', room);
+            // Tie or Skip
+            room.state = 'playing';
+            room.round++;
         }
-    });
+
+        if (room.state === 'playing') {
+            // Simultaneous writing: DO NOT clear inputs, just persist history
+            // We do NOT clear: room.inputs = [];
+            io.to(code).emit('room_update', getSafeRoomState(room));
+            startRoundTimer(room, code, io);
+        } else {
+            io.to(code).emit('room_update', getSafeRoomState(room));
+        }
+    };
 
     socket.on('ghost_vote', (data) => {
         const room = rooms[data.code];
@@ -389,7 +459,7 @@ io.on('connection', (socket) => {
         if (!room.kickedIds.includes(socket.id)) return;
 
         room.ghostVotes[socket.id] = data.targetId;
-        io.to(data.code).emit('room_update', room);
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('restart_game', (data) => {
@@ -404,9 +474,12 @@ io.on('connection', (socket) => {
         room.currentPunishment = null;
         room.impostorIds = [];
         room.inputsInCurrentRound = 0;
-        if (room.turnTimer) clearTimeout(room.turnTimer);
+        if (room.roundTimer) clearTimeout(room.roundTimer);
+        if (room.votingTimer) clearTimeout(room.votingTimer);
         room.turnExpiresAt = null;
-        io.to(data.code).emit('room_update', room);
+        room.roundExpiresAt = null;
+        room.votingExpiresAt = null;
+        io.to(data.code).emit('room_update', getSafeRoomState(room));
     });
 
     socket.on('ghost_action', (data) => {
@@ -426,7 +499,6 @@ io.on('connection', (socket) => {
         if (data.isHost) {
             // Host is leaving - close the room for everyone
             io.to(data.code).emit('room_closed');
-            if (room.turnTimer) clearTimeout(room.turnTimer);
             delete rooms[data.code];
         } else {
             // Regular player leaving - just remove them
@@ -436,7 +508,6 @@ io.on('connection', (socket) => {
 
                 // If no players left, delete room
                 if (room.players.length === 0) {
-                    if (room.turnTimer) clearTimeout(room.turnTimer);
                     delete rooms[data.code];
                 } else {
                     // Assign new host if needed
@@ -444,7 +515,7 @@ io.on('connection', (socket) => {
                     if (!hasHost && room.players.length > 0) {
                         room.players[0].isHost = true;
                     }
-                    io.to(data.code).emit('room_update', room);
+                    io.to(data.code).emit('room_update', getSafeRoomState(room));
                 }
             }
         }
@@ -478,7 +549,6 @@ io.on('connection', (socket) => {
                 if (activePlayers.length <= 1) {
                     console.log(`Room ${code} closing - only ${activePlayers.length} active player(s)`);
                     io.to(code).emit('room_closed');
-                    if (room.turnTimer) clearTimeout(room.turnTimer);
                     delete rooms[code];
                     return;
                 }
@@ -498,7 +568,7 @@ io.on('connection', (socket) => {
                     });
                 }
 
-                io.to(code).emit('room_update', room);
+                io.to(code).emit('room_update', getSafeRoomState(room));
 
                 // Clean up completely disconnected rooms after 5 minutes
                 setTimeout(() => {
@@ -506,7 +576,6 @@ io.on('connection', (socket) => {
                     if (currentRoom) {
                         const allDisconnected = currentRoom.players.every(p => p.disconnected);
                         if (allDisconnected) {
-                            if (currentRoom.turnTimer) clearTimeout(currentRoom.turnTimer);
                             delete rooms[code];
                         }
                     }

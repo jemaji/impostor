@@ -1,5 +1,14 @@
 import React from 'react';
 import { Header } from './Header';
+import {
+    DEFAULT_ROUND_TIME,
+    DEFAULT_VOTING_TIME,
+    MIN_ROUND_TIME,
+    MAX_ROUND_TIME,
+    MIN_VOTING_TIME,
+    MAX_VOTING_TIME,
+    SWIPE_THRESHOLD
+} from '../constants';
 
 interface Player {
     id: string;
@@ -26,10 +35,14 @@ interface Props {
 }
 
 export interface Settings {
-    timer: boolean;
-    timeLimit: number;
+
     punishment: boolean;
     customPunishment: string;
+    roundTimer: boolean;
+    roundTimeLimit: number;
+    votingTimer: boolean;
+    votingTimeLimit: number;
+    voteDisclosure: 'privacy' | 'reveal' | 'realtime';
 }
 
 const CATEGORIES = [
@@ -53,7 +66,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
 
-        if (Math.abs(diff) > 50 && isHost) {
+        if (Math.abs(diff) > SWIPE_THRESHOLD && isHost) {
             if (diff > 0) onDifficultyChange('hard');
             else onDifficultyChange('normal');
         }
@@ -87,8 +100,8 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                 <button
                     className="btn-primary"
                     onClick={onStart}
-                    disabled={players.length < 3 || (settings?.timer && (settings.timeLimit <= 0 || settings.timeLimit > 120))}
-                    style={{ opacity: (players.length < 3 || (settings?.timer && (settings.timeLimit <= 0 || settings.timeLimit > 120))) ? 0.5 : 1 }}
+                    disabled={players.length < 3}
+                    style={{ opacity: (players.length < 3) ? 0.5 : 1 }}
                 >
                     {players.length < 3 ? 'Esperando jugadores (mín 3)...' : 'Comenzar Partida'}
                 </button>
@@ -299,58 +312,51 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                     </div>
                 )}
 
-                {/* Timer Settings */}
+
+
+                {/* Round Timer Settings */}
                 <div style={{
                     marginTop: '10px',
                     paddingTop: '10px',
                     borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
                 }}>
                     <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', cursor: isHost ? 'pointer' : 'default' }}>
-                        <span style={{ color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>⏱️ Temporizador</span>
+                        <span style={{ color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>⏳ Tiempo Global (Ronda)</span>
                         <input
                             type="checkbox"
-                            checked={settings?.timer || false}
-                            onChange={(e) => isHost && onUpdateSettings({ timer: e.target.checked })}
+                            checked={settings?.roundTimer || false}
+                            onChange={(e) => isHost && onUpdateSettings({ roundTimer: e.target.checked })}
                             disabled={!isHost}
                             style={{ transform: 'scale(1.2)' }}
                         />
                     </label>
 
-                    {settings?.timer && (
-                        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tiempo por turno (seg):</span>
-                                {isHost ? (
-                                    <input
-                                        type="number"
-                                        value={settings.timeLimit}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            onUpdateSettings({ timeLimit: val });
-                                        }}
-                                        style={{
-                                            width: '60px', padding: '4px', borderRadius: '4px',
-                                            border: (settings.timeLimit <= 0 || settings.timeLimit > 120) ? '2px solid var(--error)' : '1px solid var(--text-secondary)',
-                                            background: 'transparent',
-                                            color: theme === 'light' ? 'black' : 'white',
-                                            textAlign: 'center',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                ) : (
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.timeLimit}s</span>
-                                )}
-                            </div>
-
-
-
+                    {settings?.roundTimer && (
+                        <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '10px' }}>
+                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Segundos:</span>
+                            {isHost ? (
+                                <input
+                                    type="number"
+                                    min={MIN_ROUND_TIME}
+                                    max={MAX_ROUND_TIME}
+                                    value={settings.roundTimeLimit || DEFAULT_ROUND_TIME}
+                                    onChange={(e) => onUpdateSettings({ roundTimeLimit: Math.max(MIN_ROUND_TIME, Math.min(MAX_ROUND_TIME, Number(e.target.value))) })}
+                                    style={{
+                                        width: '60px', padding: '4px', borderRadius: '4px',
+                                        border: '1px solid var(--text-secondary)',
+                                        background: 'transparent',
+                                        color: theme === 'light' ? 'black' : 'white',
+                                        textAlign: 'center'
+                                    }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.roundTimeLimit || DEFAULT_ROUND_TIME}s</span>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Punishment Settings (Stand-alone if timer is off? No, user said: "si hay temporizador se castigará con la logica actual... si no hay temporizador se castigará en el gameover, siempre que esté marcada la opción") */}
-                {/* Wait, currently it is INSIDE the timer block. I need to move it OUT. */}
-
+                {/* Punishment Settings */}
                 <div style={{
                     marginTop: '10px',
                     paddingTop: '10px',
@@ -369,8 +375,92 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                     {settings?.punishment && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '-5px', marginBottom: '10px' }}>
                             Se asignará un castigo al perdedor.
-                            {settings?.timer && " También si se agota el tiempo."}
                         </p>
+                    )}
+                </div>
+
+                {/* Voting Timer Settings */}
+                <div style={{
+                    marginTop: '10px',
+                    paddingTop: '10px',
+                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
+                }}>
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', cursor: isHost ? 'pointer' : 'default' }}>
+                        <span style={{ color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>🗳️ Tiempo Votación</span>
+                        <input
+                            type="checkbox"
+                            checked={settings?.votingTimer || false}
+                            onChange={(e) => isHost && onUpdateSettings({ votingTimer: e.target.checked })}
+                            disabled={!isHost}
+                            style={{ transform: 'scale(1.2)' }}
+                        />
+                    </label>
+
+                    {settings?.votingTimer && (
+                        <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '10px' }}>
+                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Segundos:</span>
+                            {isHost ? (
+                                <input
+                                    type="number"
+                                    min={MIN_VOTING_TIME}
+                                    max={MAX_VOTING_TIME}
+                                    value={settings.votingTimeLimit || DEFAULT_VOTING_TIME}
+                                    onChange={(e) => onUpdateSettings({ votingTimeLimit: Math.max(MIN_VOTING_TIME, Math.min(MAX_VOTING_TIME, Number(e.target.value))) })}
+                                    style={{
+                                        width: '60px', padding: '4px', borderRadius: '4px',
+                                        border: '1px solid var(--text-secondary)',
+                                        background: 'transparent',
+                                        color: theme === 'light' ? 'black' : 'white',
+                                        textAlign: 'center'
+                                    }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: theme === 'light' ? 'black' : 'white' }}>{settings.votingTimeLimit || DEFAULT_VOTING_TIME}s</span>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Vote Disclosure Settings */}
+                <div style={{
+                    marginTop: '10px',
+                    paddingTop: '10px',
+                    borderTop: `1px solid ${theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`
+                }}>
+                    <label style={{ display: 'block', marginBottom: '8px', color: theme === 'light' ? 'var(--text-primary)' : 'white' }}>
+                        👁️ Revelación de Votos
+                    </label>
+                    {isHost ? (
+                        <select
+                            value={settings?.voteDisclosure || 'reveal'}
+                            onChange={(e) => onUpdateSettings({ voteDisclosure: e.target.value as any })}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--text-secondary)',
+                                background: theme === 'light' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.3)',
+                                color: theme === 'light' ? 'black' : 'white',
+                                fontSize: '0.9rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <option value="privacy">🔒 Oculto (Nadie ve quién votó a quién)</option>
+                            <option value="reveal">⏱️ Al final (Revelar tras todos votar)</option>
+                            <option value="realtime">⚡ En vivo (Ver votos al instante)</option>
+                        </select>
+                    ) : (
+                        <div style={{
+                            fontSize: '0.9rem',
+                            color: 'var(--text-secondary)',
+                            padding: '8px',
+                            background: 'rgba(255,255,255,0.05)',
+                            borderRadius: '8px'
+                        }}>
+                            {settings?.voteDisclosure === 'privacy' && '🔒 Oculto (Nadie ve quién votó a quién)'}
+                            {(settings?.voteDisclosure === 'reveal' || !settings?.voteDisclosure) && '⏱️ Al final (Revelar tras todos votar)'}
+                            {settings?.voteDisclosure === 'realtime' && '⚡ En vivo (Ver votos al instante)'}
+                        </div>
                     )}
                 </div>
             </div>
