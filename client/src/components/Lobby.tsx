@@ -9,6 +9,7 @@ import {
     MAX_VOTING_TIME,
     SWIPE_THRESHOLD
 } from '../constants';
+import { NumberInput } from './ui/NumberInput';
 
 interface Player {
     id: string;
@@ -350,12 +351,11 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                         <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '10px' }}>
                             <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Segundos:</span>
                             {isHost ? (
-                                <input
-                                    type="number"
+                                <NumberInput
                                     min={MIN_ROUND_TIME}
                                     max={MAX_ROUND_TIME}
                                     value={settings.roundTimeLimit || DEFAULT_ROUND_TIME}
-                                    onChange={(e) => onUpdateSettings({ roundTimeLimit: Math.max(MIN_ROUND_TIME, Math.min(MAX_ROUND_TIME, Number(e.target.value))) })}
+                                    onChange={(val) => onUpdateSettings({ roundTimeLimit: val })}
                                     style={{
                                         width: '60px', padding: '4px', borderRadius: '4px',
                                         border: '1px solid var(--text-secondary)',
@@ -415,12 +415,11 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                         <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '10px' }}>
                             <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Segundos:</span>
                             {isHost ? (
-                                <input
-                                    type="number"
+                                <NumberInput
                                     min={MIN_VOTING_TIME}
                                     max={MAX_VOTING_TIME}
                                     value={settings.votingTimeLimit || DEFAULT_VOTING_TIME}
-                                    onChange={(e) => onUpdateSettings({ votingTimeLimit: Math.max(MIN_VOTING_TIME, Math.min(MAX_VOTING_TIME, Number(e.target.value))) })}
+                                    onChange={(val) => onUpdateSettings({ votingTimeLimit: val })}
                                     style={{
                                         width: '60px', padding: '4px', borderRadius: '4px',
                                         border: '1px solid var(--text-secondary)',
