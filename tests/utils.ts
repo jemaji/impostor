@@ -3,7 +3,7 @@ import { Browser, BrowserContext, Page, expect } from '@playwright/test';
 // Important this with push to contexts array for skip garbage collection
 let contexts: BrowserContext[] = [];
 
-export async function createHost(browser: Browser, name: string = 'HostPlayer'): Promise<{ page: Page, roomCode: string }> {
+async function createHost(browser: Browser, name: string = 'HostPlayer'): Promise<{ page: Page, roomCode: string }> {
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -22,7 +22,7 @@ export async function createHost(browser: Browser, name: string = 'HostPlayer'):
     return { page, roomCode };
 }
 
-export async function joinPlayer(browser: Browser, roomCode: string, name: string): Promise<Page> {
+async function joinPlayer(browser: Browser, roomCode: string, name: string): Promise<Page> {
     const context = await browser.newContext();
     contexts.push(context);
     const page = await context.newPage();
@@ -56,8 +56,22 @@ export async function joinPlayer(browser: Browser, roomCode: string, name: strin
     return page;
 }
 
-export async function joinPlayers(browser: Browser, roomCode: string, names: string[]): Promise<Page[]> {
+async function joinPlayers(browser: Browser, roomCode: string, names: string[]): Promise<Page[]> {
     const playerJoinPromises = names.map(name => joinPlayer(browser, roomCode, name));
     const pages = await Promise.all(playerJoinPromises);
     return pages;
+}
+
+export async function createRoom(browser: Browser, options: { hostName?: string, players?: string[] } = {}) {
+    const hostName = options.hostName || 'HostPlayer';
+    const playerNames = options.players || [];
+
+    const { page: hostPage, roomCode } = await createHost(browser, hostName);
+    const playersPages = await joinPlayers(browser, roomCode, playerNames);
+
+    return {
+        room: { code: roomCode },
+        host: { page: hostPage },
+        players: playersPages
+    };
 }

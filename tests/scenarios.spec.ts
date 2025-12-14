@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { createHost, joinPlayers } from './utils';
+import { createRoom } from './utils';
 
 test.describe('Game Scenarios', () => {
     test.setTimeout(10000);
 
     test('Scenario: 4 Players Happy Path', async ({ browser }) => {
-        // 1. Host creates room
-        const { page: hostPage, roomCode } = await createHost(browser, 'HostPlayer');
-
-        // 2. 3 Players join
-        const [player2Page, player3Page, player4Page] = await joinPlayers(browser, roomCode, ['Player2', 'Player3', 'Player4']);
+        // 1. Host creates room and players join
+        const { host: { page: hostPage }, players: [player2Page, player3Page, player4Page] } = await createRoom(browser, {
+            hostName: 'HostPlayer',
+            players: ['Player2', 'Player3', 'Player4']
+        });
 
 
         // Verify all players visible to host
@@ -28,11 +28,11 @@ test.describe('Game Scenarios', () => {
     });
 
     test('Scenario: 7 Players Happy Path', async ({ browser }) => {
-        // 1. Host creates room
-        const { page: hostPage, roomCode } = await createHost(browser, 'HostPlayer');
-
-        // 2. 6 Players join
-        const [player2Page, player3Page, player4Page, player5Page, player6Page, player7Page] = await joinPlayers(browser, roomCode, ['Player2', 'Player3', 'Player4', 'Player5', 'Player6', 'Player7']);
+        // 1. Host creates room and players join
+        const { host: { page: hostPage }, players: [player2Page, player3Page, player4Page, player5Page, player6Page, player7Page] } = await createRoom(browser, {
+            hostName: 'HostPlayer',
+            players: ['Player2', 'Player3', 'Player4', 'Player5', 'Player6', 'Player7']
+        });
 
 
         // Verify all players visible to host

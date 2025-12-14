@@ -1,18 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { createHost, joinPlayers } from './utils';
+import { createRoom } from './utils';
 
 test.describe('Timer Scenarios', () => {
     test.setTimeout(10000);
 
     test('Scenario: 4 Players with Common Timer', async ({ browser }) => {
-        // 1. Host creates room
-        console.log('Creating host...');
-        const { page: hostPage, roomCode } = await createHost(browser, 'HostPlayer');
+        // 1. Host creates room and players join
+        console.log('Creating room and joining players...');
+        const { room: { code: roomCode }, host: { page: hostPage }, players: [player2Page, player3Page, player4Page] } = await createRoom(browser, {
+            hostName: 'HostPlayer',
+            players: ['Player2', 'Player3', 'Player4']
+        });
         console.log('Host created room:', roomCode);
-
-        // 2. 3 Players join
-        console.log('Joining players...');
-        const [player2Page, player3Page, player4Page] = await joinPlayers(browser, roomCode, ['Player2', 'Player3', 'Player4']);
         console.log('Players joined.');
 
         // Verify players joined
