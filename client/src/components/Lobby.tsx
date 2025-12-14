@@ -81,7 +81,7 @@ export const Lobby: React.FC<Props> = ({ roomCode, players, isHost, difficulty, 
                         const url = `${window.location.origin}/join-room/${roomCode}`;
                         const shareData = {
                             title: 'Impostor',
-                            text: `Averigua quien miente: ${url}`,
+                            text: `Averigua quien miente:`,
                             url: url
                         };
                         try {
