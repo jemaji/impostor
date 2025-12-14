@@ -8,7 +8,8 @@
         "client": "cd client && npm run dev",
         "install:all": "npm install && cd client && npm install && cd ../server && npm install",
         "test:e2e": "playwright test",
-        "test:ui": "playwright test --ui"
+        "test:ui": "playwright test --ui",
+        "test:debug": "playwright test --debug"
     },
     "devDependencies": {
         "@playwright/test": "^1.57.0",

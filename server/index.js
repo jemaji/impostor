@@ -254,6 +254,12 @@ io.on('connection', (socket) => {
                 delete room.pauseReason;
             }
 
+            // Ensure there is a host (if the only player disconnected and reconnected)
+            const hasHost = room.players.some(p => p.isHost && !p.disconnected);
+            if (!hasHost) {
+                existingPlayer.isHost = true;
+            }
+
             callback({ success: true });
             io.to(data.code).emit('room_update', getSafeRoomState(room));
             return;
@@ -545,12 +551,14 @@ io.on('connection', (socket) => {
                     !p.disconnected && !room.kickedIds.includes(p.id)
                 );
 
-                // If only 1 or 0 active players, close the room
+                // If only 1 or 0 active players, do NOT close the room immediately.
+                // Wait for the 5-minute cleanup timeout to handle it.
                 if (activePlayers.length <= 1) {
-                    console.log(`Room ${code} closing - only ${activePlayers.length} active player(s)`);
-                    io.to(code).emit('room_closed');
-                    delete rooms[code];
-                    return;
+                    console.log(`Room ${code} has only ${activePlayers.length} active player(s). Keeping open for reconnection.`);
+                    if (activePlayers.length === 0) {
+                        // Optional: could mark as 'abandoned' or similar if needed, 
+                        // but standard timeout cleanup is sufficient.
+                    }
                 }
 
                 // If game is in progress and less than 3 active players, pause
